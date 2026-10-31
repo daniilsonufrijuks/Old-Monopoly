@@ -10,7 +10,7 @@ export interface Settings {
   sound: boolean;
   volume: number;
   reducedMotion: boolean;
-  turnSpeed: 'relaxed' | 'normal' | 'fast';
+  turnSpeed: 'slow' | 'leisurely' | 'relaxed' | 'normal' | 'fast';
   theme: ThemeId;
   gameMode: GameModeId;
   language: Language;

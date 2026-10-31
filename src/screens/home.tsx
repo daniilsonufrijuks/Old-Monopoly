@@ -145,11 +145,14 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       <label className="flex items-center justify-between text-sm">Reduced motion <input type="checkbox" checked={settings.reducedMotion} onChange={(event) => void update({ reducedMotion: event.target.checked })} /></label>
       <label className="block text-sm">Turn pace
         <select className="ml-2 rounded px-2 text-ink" value={settings.turnSpeed} onChange={(event) => void update({ turnSpeed: event.target.value as SettingsSpeed })}>
+          <option value="slow">Slow</option>
+          <option value="leisurely">Leisurely</option>
           <option value="relaxed">Relaxed</option>
           <option value="normal">Normal</option>
           <option value="fast">Fast</option>
         </select>
       </label>
+      <p className="menu-soft text-xs">Slow and Leisurely keep each Chance card up until you press OK, and give the computer a longer pause between moves.</p>
       <p className="menu-soft text-xs">Starting cash, auctions, tax choice, and Free Parking below apply to the Classic mode. The other modes bring their own table rules.</p>
       <label className="block text-sm">Starting cash (Classic)
         <input className="ml-2 w-24 rounded px-2 text-ink" type="number" min={500} max={3000} step={50} value={settings.startingCash} onChange={(event) => void update({ startingCash: Number(event.target.value) })} />
@@ -171,7 +174,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-type SettingsSpeed = 'relaxed' | 'normal' | 'fast';
+type SettingsSpeed = 'slow' | 'leisurely' | 'relaxed' | 'normal' | 'fast';
 
 function NameAndToken() {
   const { settings, update } = useSettings();

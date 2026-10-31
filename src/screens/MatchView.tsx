@@ -99,6 +99,11 @@ export function MatchView({
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+      if (card && (event.code === 'Enter' || event.code === 'Escape')) {
+        event.preventDefault();
+        onDismissCard?.();
+        return;
+      }
       if (event.code === 'Space' && yours && state.phase.kind === 'pre-roll') {
         event.preventDefault();
         onAction({ type: 'roll' });
@@ -106,7 +111,7 @@ export function MatchView({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onAction, state.phase.kind, yours]);
+  }, [card, onAction, onDismissCard, state.phase.kind, yours]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -145,7 +150,7 @@ export function MatchView({
             );
           })}
         </aside>
-        <div className="min-h-0">
+        <div className="board-well min-h-0">
           <Board state={state} positions={positions} dice={dice} rolling={rolling} notice={card ?? state.log.at(-1)?.message ?? 'Roll to begin.'} onSelect={setDeed} />
         </div>
         <aside className="paper-panel flex min-h-0 flex-col rounded-xl p-3">
@@ -226,10 +231,10 @@ export function MatchView({
       {tradeOpen && you && <Trade state={state} youId={youId} onClose={() => setTradeOpen(false)} onOffer={(action) => { setTradeOpen(false); onAction(action); }} />}
       {counterOpen && state.phase.kind === 'trade' && <Trade state={state} youId={youId} counter onClose={() => setCounterOpen(false)} onOffer={(action) => { setCounterOpen(false); onAction(action); }} />}
       {card && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30">
-          <article className="paper-panel max-w-md rounded-xl p-6 text-center font-deed text-xl">
-            {card}
-            <div><button className="gold-button mt-4 rounded-md px-4 py-2 text-xs" onClick={onDismissCard}>{tr('ok')}</button></div>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-6" onClick={onDismissCard}>
+          <article className="paper-panel w-full max-w-lg rounded-xl p-8 text-center" onClick={(event) => event.stopPropagation()}>
+            <p className="font-deed text-2xl leading-snug text-ink">{card}</p>
+            <button type="button" className="gold-button mt-6 min-w-40 rounded-md px-8 py-3 text-base" onClick={onDismissCard}>{tr('ok')}</button>
           </article>
         </div>
       )}
@@ -290,7 +295,7 @@ function Deed({ state, propertyId, onClose }: { state: GameState; propertyId: st
         )}
         {space.kind === 'railroad' && <p className="mt-3 font-deed text-sm">Rent is $25, $50, $100, or $200 for 1–4 railroads.</p>}
         {space.kind === 'utility' && <p className="mt-3 font-deed text-sm">Rent is 4× the dice if one utility is owned, or 10× if both are owned.</p>}
-        <button className="gold-button mt-4 rounded-md px-3 py-2 text-xs" onClick={onClose}>Close</button>
+        <button type="button" className="gold-button mt-5 min-w-32 rounded-md px-6 py-3 text-base" onClick={onClose}>OK</button>
       </article>
     </div>
   );

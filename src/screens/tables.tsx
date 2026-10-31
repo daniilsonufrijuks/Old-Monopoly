@@ -8,7 +8,7 @@ import type { GameAction, GameEvent, GameState, NewGameConfig } from '../game/ty
 import { LANClient } from '../multiplayer/client/LANClient';
 import { store } from '../platform/store';
 import { useSettings } from '../settings/SettingsContext';
-import { speedMs } from '../settings/defaults';
+import { cardHoldMs, pauseMs, speedMs } from '../settings/defaults';
 import { MatchView } from './MatchView';
 
 function wait(ms: number): Promise<void> {
@@ -39,7 +39,7 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
       const timer = setTimeout(() => {
         setCard(null);
         resolve();
-      }, settingsRef.current.reducedMotion ? 500 : 8000);
+      }, cardHoldMs(settingsRef.current.turnSpeed, settingsRef.current.reducedMotion));
       dismissCard.current = () => {
         clearTimeout(timer);
         setCard(null);
@@ -69,9 +69,10 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
         const text = cardText(settingsRef.current.language, event.cardId, event.text);
         if (settingsRef.current.commentary) speak(text, settingsRef.current.language);
         await holdCard(text);
-      } else if (event.type === 'build') sfx.build();
+      }       else if (event.type === 'build') sfx.build();
       else if (event.type === 'win') sfx.win();
     }
+    await wait(pauseMs(settingsRef.current.turnSpeed, settingsRef.current.reducedMotion));
   }
 
   async function pump() {
@@ -215,7 +216,7 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
           const timer = setTimeout(() => {
             setCard(null);
             resolve();
-          }, settingsRef.current.reducedMotion ? 500 : 8000);
+          }, cardHoldMs(settingsRef.current.turnSpeed, settingsRef.current.reducedMotion));
           dismissCard.current = () => {
             clearTimeout(timer);
             setCard(null);
@@ -225,6 +226,7 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
       } else if (event.type === 'build') sfx.build();
       else if (event.type === 'win') sfx.win();
     }
+    await wait(pauseMs(settingsRef.current.turnSpeed, settingsRef.current.reducedMotion));
   }
 
   useEffect(() => {

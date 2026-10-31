@@ -29,7 +29,7 @@ function readSettings(input: unknown): Settings {
     startingCash: Number.isInteger(cash) && cash >= 500 && cash <= 3000 ? cash : DEFAULT_SETTINGS.startingCash,
     volume: Math.min(1, Math.max(0, Number(raw.volume ?? DEFAULT_SETTINGS.volume))),
     token: raw.token ?? DEFAULT_SETTINGS.token,
-    turnSpeed: raw.turnSpeed === 'fast' || raw.turnSpeed === 'relaxed' ? raw.turnSpeed : 'normal',
+    turnSpeed: raw.turnSpeed === 'slow' || raw.turnSpeed === 'leisurely' || raw.turnSpeed === 'relaxed' || raw.turnSpeed === 'fast' ? raw.turnSpeed : 'normal',
     theme: isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
     gameMode: isGameMode(raw.gameMode) ? raw.gameMode : DEFAULT_SETTINGS.gameMode,
     language: raw.language === 'ru' ? 'ru' as Language : 'en',

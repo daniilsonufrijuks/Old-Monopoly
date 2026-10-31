@@ -192,6 +192,16 @@ select option {
   cursor: not-allowed;
 }
 
+.board-well {
+  height: 100%;
+  padding: 12px;
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 226, 180, 0.28), transparent 32%),
+    linear-gradient(160deg, #8d5b34, #3b2414 55%, #2a180f);
+  box-shadow: inset 0 0 0 2px rgba(255, 220, 170, 0.35), 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
 .board {
   display: grid;
   grid-template-columns: 2.15fr repeat(9, 1fr) 2.15fr;
@@ -201,10 +211,10 @@ select option {
   aspect-ratio: 1;
   position: relative;
   background:
-    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.28), transparent 42%),
+    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.35), transparent 42%),
     var(--board);
-  border: 8px solid var(--board-edge);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), inset 0 0 0 3px #e7d3a4;
+  border: 10px solid var(--board-edge);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 4px #e7d3a4, inset 0 0 0 7px var(--board-edge);
 }
 
 .space {
@@ -247,15 +257,17 @@ select option {
 .space .price, .space .houses {
   position: absolute;
   z-index: 2;
-  left: 1px;
-  right: 1px;
-  bottom: 1px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
   color: #1a120c;
   font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
-  font-size: clamp(9px, 0.7vw, 12px);
+  font-size: clamp(10px, 0.75vw, 13px);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+  background: rgba(255, 250, 240, 0.92);
+  border-radius: 2px;
 }
 
 .space.left .price { left: 2px; right: auto; bottom: 3px; }
@@ -314,25 +326,58 @@ select option {
 .board-center {
   grid-column: 2 / 11;
   grid-row: 2 / 11;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  margin: 10px;
   pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.45), transparent 48%),
+    repeating-linear-gradient(0deg, rgba(90, 60, 30, 0.05) 0 1px, transparent 1px 18px);
+  border: 1px solid rgba(90, 60, 30, 0.2);
+  border-radius: 12px;
+}
+
+.board-medallion {
+  position: absolute;
+  width: min(46%, 220px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 2px solid rgba(122, 29, 29, 0.35);
+  box-shadow: inset 0 0 0 8px rgba(184, 137, 62, 0.18);
+}
+
+.set-flag {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  right: 2px;
+  color: #0c5a28;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(255, 250, 240, 0.92);
+  border-radius: 2px;
+  padding: 0 2px;
 }
 
 .token {
   position: absolute;
-  width: 22px;
-  height: 22px;
-  margin-left: -11px;
-  margin-top: -11px;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  margin-top: -13px;
   z-index: 3;
   filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.45));
   border-radius: 999px;
   background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.8), rgba(255,255,255,0) 45%), var(--metal);
   border: 1px solid #2a2118;
+}
+
+.token.current {
+  box-shadow: 0 0 0 3px #f0d48a, 0 0 0 5px #3e2918;
 }
 
 .die {

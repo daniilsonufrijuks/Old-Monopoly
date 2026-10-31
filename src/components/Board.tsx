@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { GROUP_COLOR, isOwnable, spaceById, type SpaceDef } from '../game/board/spaces';
+import { GROUP_COLOR, GROUP_IDS, isOwnable, spaceById, type SpaceDef } from '../game/board/spaces';
 import { SPACES } from '../game/board/spaces';
 import type { GameState } from '../game/types';
 import { PropertyMark } from './Marks';
@@ -39,7 +39,8 @@ function SpaceCell({ space, state, onSelect }: { space: SpaceDef; state: GameSta
     >
       {color && <i className="bar" />}
       <PropertyMark id={space.id} className="mark" />
-      <span className="label">{space.shortName}</span>
+      <span className="label">{space.kind === 'go' ? `GO +$${state.rules.goSalary}` : space.shortName}</span>
+      {doubledRent(state, space) && <span className="set-flag">×2</span>}
       {owned && owned.houses > 0 && <span key={`${space.id}-${owned.houses}`} className="houses">{owned.houses === 5 ? 'HOTEL' : '●'.repeat(owned.houses)}</span>}
       {isOwnable(space) && !owned?.ownerId && <span className="price">${space.price}</span>}
       {owned?.mortgaged && <span className="price">MORT</span>}
@@ -71,8 +72,9 @@ export function Board({
     <div className="board">
       {SPACES.map((space) => <SpaceCell key={space.id} space={space} state={state} onSelect={onSelect} />)}
       <div className="board-center">
-        <div className="board-title font-display text-3xl tracking-[0.18em]">MONOPOLY</div>
-        <div className="board-sub font-deed text-xs uppercase tracking-[0.22em]">{modeById(state.rules.modeId ?? 'classic').name} table</div>
+        <div className="board-medallion" aria-hidden="true" />
+        <div className="board-title font-display text-4xl tracking-[0.2em]">MONOPOLY</div>
+        <div className="board-sub font-deed text-xs uppercase tracking-[0.28em]">{modeById(state.rules.modeId ?? 'classic').name} table</div>
         <div className="flex gap-3 pointer-events-none">
           <Die value={dice?.[0] ?? 0} rolling={rolling} />
           <Die value={dice?.[1] ?? 0} rolling={rolling} />
@@ -87,7 +89,7 @@ export function Board({
         return (
           <motion.div
             key={player.id}
-            className="token"
+            className={`token ${player.id === state.players[state.currentPlayerIndex]?.id ? 'current' : ''}`}
             style={{ ['--metal' as string]: metal }}
             animate={{ left: `${point.x}%`, top: `${point.y}%` }}
             transition={{ duration: rolling ? 0.05 : 0.18 }}
@@ -99,6 +101,16 @@ export function Board({
       })}
     </div>
   );
+}
+
+function doubledRent(state: GameState, space: SpaceDef): boolean {
+  if (space.kind !== 'street') return false;
+  const owned = state.properties[space.id];
+  if (!owned?.ownerId || owned.mortgaged || owned.houses > 0) return false;
+  return GROUP_IDS[space.group].every((id) => {
+    const prop = state.properties[id];
+    return prop.ownerId === owned.ownerId && !prop.mortgaged && prop.houses === 0;
+  });
 }
 
 export function spaceTitle(id: string): string {
