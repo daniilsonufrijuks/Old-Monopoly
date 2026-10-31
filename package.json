@@ -1,0 +1,60 @@
+{
+  "name": "classic-monopoly",
+  "version": "1.0.0",
+  "description": "Classic Monopoly desktop edition with offline solo AI and LAN multiplayer",
+  "author": "Classic Monopoly",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dist": "electron-vite build && electron-builder --win",
+    "dist:all": "electron-vite build && electron-builder --win --mac --linux",
+    "icon": "node scripts/make-icon.mjs"
+  },
+  "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/libre-baskerville": "^5.3.0",
+    "@fontsource/source-sans-3": "^5.3.1",
+    "framer-motion": "^14.9.0",
+    "lucide-react": "^1.66.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4",
+    "sql.js": "^1.15.2",
+    "zod": "^4.6.7"
+  },
+  "build": {
+    "appId": "com.classicmonopoly.desktop",
+    "productName": "Classic Monopoly",
+    "directories": { "output": "release" },
+    "files": ["out/**/*", "package.json"],
+    "asarUnpack": ["node_modules/sql.js/**"],
+    "win": { "target": "nsis", "icon": "build/icon.ico" },
+    "mac": { "target": "dmg", "icon": "build/icon.png", "category": "public.app-category.games" },
+    "linux": { "target": "AppImage", "icon": "build/icon.png" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "shortcutName": "Classic Monopoly" }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.2",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "pngjs": "^7.0.0",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.19",
+    "to-ico": "^1.1.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
