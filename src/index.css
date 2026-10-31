@@ -132,8 +132,19 @@ body {
   color: var(--menu-text);
 }
 
-button, input, select {
+button, input, select, textarea {
   font: inherit;
+}
+
+input, textarea, select, option {
+  color: #1a120c;
+  background-color: #fffaf0;
+  color-scheme: light;
+}
+
+select option {
+  color: #1a120c;
+  background-color: #fffaf0;
 }
 
 .wood-panel {
