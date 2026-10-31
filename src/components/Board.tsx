@@ -40,7 +40,7 @@ function SpaceCell({ space, state, onSelect }: { space: SpaceDef; state: GameSta
       {color && <i className="bar" />}
       <PropertyMark id={space.id} className="mark" />
       <span className="label">{space.shortName}</span>
-      {owned && owned.houses > 0 && <span className="houses">{owned.houses === 5 ? 'HOTEL' : '●'.repeat(owned.houses)}</span>}
+      {owned && owned.houses > 0 && <span key={`${space.id}-${owned.houses}`} className="houses">{owned.houses === 5 ? 'HOTEL' : '●'.repeat(owned.houses)}</span>}
       {isOwnable(space) && !owned?.ownerId && <span className="price">${space.price}</span>}
       {owned?.mortgaged && <span className="price">MORT</span>}
     </button>

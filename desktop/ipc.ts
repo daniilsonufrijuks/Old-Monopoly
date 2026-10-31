@@ -1,6 +1,7 @@
 import { app, ipcMain, type BrowserWindow } from 'electron';
 import { LANServer } from '../src/multiplayer/server/LANServer';
 import { isGameMode, tableRules } from '../src/game/modes';
+import type { Language } from '../src/i18n';
 import { DEFAULT_SETTINGS } from '../src/settings/defaults';
 import { isTheme } from '../src/settings/themes';
 import type { Settings } from '../src/platform/types';
@@ -31,6 +32,14 @@ function readSettings(input: unknown): Settings {
     turnSpeed: raw.turnSpeed === 'fast' || raw.turnSpeed === 'relaxed' ? raw.turnSpeed : 'normal',
     theme: isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
     gameMode: isGameMode(raw.gameMode) ? raw.gameMode : DEFAULT_SETTINGS.gameMode,
+    language: raw.language === 'ru' ? 'ru' as Language : 'en',
+    diceStyle: raw.diceStyle === 'ebony' || raw.diceStyle === 'wood' ? raw.diceStyle : 'ivory',
+    lighting: raw.lighting === 'night' ? 'night' : 'day',
+    commentary: Boolean(raw.commentary),
+    played: Number.isInteger(raw.played) && (raw.played ?? 0) >= 0 ? raw.played ?? 0 : 0,
+    won: Number.isInteger(raw.won) && (raw.won ?? 0) >= 0 ? raw.won ?? 0 : 0,
+    extraCardText: String(raw.extraCardText ?? '').slice(0, 80),
+    extraCardAmount: Number.isInteger(raw.extraCardAmount) ? Math.max(-500, Math.min(500, raw.extraCardAmount ?? 0)) : 50,
     disconnectMode: raw.disconnectMode === 'wait' ? 'wait' : 'autoplay',
   };
 }

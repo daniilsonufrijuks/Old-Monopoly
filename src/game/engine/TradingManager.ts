@@ -34,7 +34,12 @@ export function validateOffer(state: GameState, fromId: string, offer: Omit<Trad
     offer.requestProperties.length === 0 &&
     offer.offerCards === 0 &&
     offer.requestCards === 0;
-  if (nothing) return 'The trade is empty';
+  const share = offer.rentShareTurns ?? 0;
+  if (!Number.isInteger(share) || share < 0 || share > 6) return 'Future rent must be 0 to 6 collections';
+  if (nothing && share === 0) return 'The trade is empty';
+  if (share > 0 && offer.offerProperties.length + offer.requestProperties.length === 0) {
+    return 'A future rent share needs at least one deed to change hands';
+  }
   for (const id of offer.offerProperties) {
     const prop = state.properties[id];
     if (!prop || prop.ownerId !== from.id) return 'You can only offer deeds you own';
@@ -77,6 +82,13 @@ export function applyTrade(state: GameState, ctx: Ctx, offer: TradeOffer): void 
   const toInterest = mortgageInterest(state, offer.offerProperties);
   from.cash -= fromInterest;
   to.cash -= toInterest;
+  const share = offer.rentShareTurns ?? 0;
+  if (share > 0 && offer.offerProperties.length > 0) {
+    state.agreements.push({ ownerId: to.id, payeeId: from.id, turnsLeft: share });
+  }
+  if (share > 0 && offer.requestProperties.length > 0) {
+    state.agreements.push({ ownerId: from.id, payeeId: to.id, turnsLeft: share });
+  }
   if (fromInterest > 0) log(state, ctx, `${from.name} pays $${fromInterest} mortgage interest to the bank.`);
   if (toInterest > 0) log(state, ctx, `${to.name} pays $${toInterest} mortgage interest to the bank.`);
   log(state, ctx, `${from.name} and ${to.name} complete a trade.`);

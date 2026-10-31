@@ -23,6 +23,7 @@ export interface LobbySnapshot {
   players: Array<Omit<LobbyPlayer, 'sessionToken'>>;
   rules: GameRules;
   maxPlayers: number;
+  spectators: Array<{ id: string; name: string }>;
   message?: string;
 }
 
@@ -35,6 +36,7 @@ export class RoomManager {
   status: LobbySnapshot['status'] = 'lobby';
   rules: GameRules;
   players: LobbyPlayer[] = [];
+  spectators: Array<{ id: string; name: string; sessionToken: string }> = [];
   closedReason = '';
 
   constructor(hostName: string, hostToken: string, rules?: Partial<GameRules>) {
@@ -53,6 +55,7 @@ export class RoomManager {
       players: this.players.map(({ sessionToken: _session, ...player }) => player),
       rules: this.rules,
       maxPlayers: 6,
+      spectators: this.spectators.map(({ id, name }) => ({ id, name })),
       message: this.closedReason || undefined,
     };
   }
@@ -77,6 +80,15 @@ export class RoomManager {
     };
     this.players.push(player);
     return player;
+  }
+
+  addSpectator(name: string, sessionToken: string): { id: string; name: string } | string {
+    const clean = cleanName(name);
+    if (!clean) return 'Enter a player name';
+    if (this.spectators.length >= 8) return 'The rail is full of spectators';
+    const spectator = { id: `s_${Math.random().toString(36).slice(2, 10)}`, name: clean, sessionToken };
+    this.spectators.push(spectator);
+    return { id: spectator.id, name: spectator.name };
   }
 
   addAi(difficulty: Difficulty, personality: Personality): LobbyPlayer | string {

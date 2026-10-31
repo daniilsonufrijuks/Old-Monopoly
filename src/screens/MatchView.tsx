@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GROUP_COLOR, spaceById } from '../game/board/spaces';
 import { isOwnable } from '../game/board/spaces';
 import { actingPlayerId } from '../game/engine/TurnManager';
@@ -6,6 +6,8 @@ import { canBuild, canMortgage, canSellBuilding, canUnmortgage, housePrice, netW
 import { describeRules } from '../game/modes';
 import { COMPANIES, PropertyMark } from '../components/Marks';
 import type { GameAction, GameState } from '../game/types';
+import { t } from '../i18n';
+import { useSettings } from '../settings/SettingsContext';
 import { Board } from '../components/Board';
 import { TOKENS, TokenGlyph } from '../components/Tokens';
 
@@ -27,6 +29,9 @@ export function MatchView({
   onAction,
   onSave,
   onLeave,
+  onDismissCard,
+  messages,
+  onChat,
 }: {
   state: GameState;
   youId: string;
@@ -41,9 +46,21 @@ export function MatchView({
   onAction: (action: GameAction) => void;
   onSave: () => void;
   onLeave: () => void;
+  onDismissCard?: () => void;
+  messages?: Array<{ name: string; text: string }>;
+  onChat?: (text: string) => void;
 }) {
+  const { settings } = useSettings();
+  const tr = (key: string) => t(settings.language, key);
   const [deed, setDeed] = useState<string | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [counterOpen, setCounterOpen] = useState(false);
+  const [books, setBooks] = useState(false);
+  const [history, setHistory] = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [localChat, setLocalChat] = useState<Array<{ name: string; text: string }>>([]);
+  const [clock, setClock] = useState(Date.now());
+  const auctionSent = useRef(false);
   const [bid, setBid] = useState(10);
   const actor = actingPlayerId(state);
   const yours = actor === youId && !busy && state.phase.kind !== 'ended';
@@ -61,6 +78,22 @@ export function MatchView({
     window.addEventListener('monopoly-menu', onMenu);
     return () => window.removeEventListener('monopoly-menu', onMenu);
   }, [onAction, onSave, state.phase.kind, yours]);
+
+  useEffect(() => {
+    if (state.phase.kind !== 'auction') {
+      auctionSent.current = false;
+      return;
+    }
+    const timer = setInterval(() => setClock(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [state.phase]);
+
+  useEffect(() => {
+    if (state.phase.kind !== 'auction' || !state.phase.deadline || auctionSent.current) return;
+    if (Date.now() + 200 < state.phase.deadline) return;
+    auctionSent.current = true;
+    onAction({ type: 'auction-close' });
+  }, [clock, onAction, state.phase]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -119,31 +152,32 @@ export function MatchView({
           <h2 className="font-display text-sm tracking-[0.14em]">THE TABLE</h2>
           {error && <p className="mt-2 rounded bg-[#f8d7d2] px-2 py-1 text-sm">{error}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
-            {state.phase.kind === 'pre-roll' && <Action label={you?.inJail ? 'Roll for doubles' : 'Roll dice'} disabled={!yours} onClick={() => onAction({ type: 'roll' })} />}
+            {state.phase.kind === 'pre-roll' && <Action label={you?.inJail ? tr('rollJail') : tr('roll')} disabled={!yours} onClick={() => onAction({ type: 'roll' })} />}
             {state.phase.kind === 'pre-roll' && you?.inJail && <Action label="Pay $50" disabled={!yours || (you?.cash ?? 0) < 50} onClick={() => onAction({ type: 'pay-jail' })} />}
             {state.phase.kind === 'pre-roll' && you?.inJail && <Action label="Use jail card" disabled={!yours || !you?.getOutCards.length} onClick={() => onAction({ type: 'use-jail-card' })} />}
             {state.phase.kind === 'buy' && <Action label={`Buy ${money(priceOf(state.phase.propertyId))}`} disabled={!yours} onClick={() => onAction({ type: 'buy' })} />}
-            {state.phase.kind === 'buy' && <Action label={state.rules.auctions ? 'Decline & auction' : 'Decline'} disabled={!yours} onClick={() => onAction({ type: 'decline' })} />}
+            {state.phase.kind === 'buy' && <Action label={state.rules.auctions ? tr('declineAuction') : tr('decline')} disabled={!yours} onClick={() => onAction({ type: 'decline' })} />}
             {state.phase.kind === 'income-tax' && <Action label={`Pay ${money(state.rules.incomeTax)}`} disabled={!yours} onClick={() => onAction({ type: 'pay-tax', method: 'flat' })} />}
             {state.phase.kind === 'income-tax' && you && <Action label={`Pay 10% (${money(Math.floor(netWorth(state, you.id) * 0.1))})`} disabled={!yours} onClick={() => onAction({ type: 'pay-tax', method: 'percent' })} />}
-            {state.phase.kind === 'manage' && <Action label="End turn" disabled={!yours} onClick={() => onAction({ type: 'end-turn' })} />}
-            {(state.phase.kind === 'manage' || state.phase.kind === 'pre-roll') && <Action label="Offer trade" disabled={!yours} onClick={() => setTradeOpen(true)} />}
+            {state.phase.kind === 'manage' && <Action label={tr('endTurn')} disabled={!yours} onClick={() => onAction({ type: 'end-turn' })} />}
+            {(state.phase.kind === 'manage' || state.phase.kind === 'pre-roll') && <Action label={tr('trade')} disabled={!yours} onClick={() => setTradeOpen(true)} />}
             {state.phase.kind === 'debt' && state.phase.debtorId === youId && <Action label={`Pay ${money(state.phase.amount)}`} disabled={busy || (you?.cash ?? 0) < state.phase.amount} onClick={() => onAction({ type: 'settle-debt' })} />}
-            {state.phase.kind === 'debt' && state.phase.debtorId === youId && <Action label="Go bankrupt" disabled={busy} onClick={() => onAction({ type: 'declare-bankruptcy' })} />}
-            {state.phase.kind === 'trade' && state.phase.offer.toId === youId && <Action label="Accept trade" disabled={busy} onClick={() => onAction({ type: 'accept-trade' })} />}
-            {state.phase.kind === 'trade' && state.phase.offer.toId === youId && <Action label="Reject trade" disabled={busy} onClick={() => onAction({ type: 'reject-trade' })} />}
-            {state.phase.kind === 'trade' && state.phase.offer.fromId === youId && <Action label="Cancel trade" disabled={busy} onClick={() => onAction({ type: 'cancel-trade' })} />}
+            {state.phase.kind === 'debt' && state.phase.debtorId === youId && <Action label={tr('bankrupt')} disabled={busy} onClick={() => onAction({ type: 'declare-bankruptcy' })} />}
+            {state.phase.kind === 'trade' && state.phase.offer.toId === youId && <Action label={tr('accept')} disabled={busy} onClick={() => onAction({ type: 'accept-trade' })} />}
+            {state.phase.kind === 'trade' && state.phase.offer.toId === youId && <Action label={tr('counter')} disabled={busy} onClick={() => setCounterOpen(true)} />}
+            {state.phase.kind === 'trade' && state.phase.offer.toId === youId && <Action label={tr('reject')} disabled={busy} onClick={() => onAction({ type: 'reject-trade' })} />}
+            {state.phase.kind === 'trade' && state.phase.offer.fromId === youId && <Action label={tr('cancel')} disabled={busy} onClick={() => onAction({ type: 'cancel-trade' })} />}
           </div>
           {state.phase.kind === 'auction' && (
-            <div className="mt-3 rounded-lg bg-[#f6ead2] p-2 text-sm">
-              <div>Auction for {spaceById(state.phase.propertyId).name}</div>
-              <div>High bid {money(state.phase.highBid)} {state.phase.highBidderId ? `by ${nameOf(state, state.phase.highBidderId)}` : ''}</div>
-              <div>Bidding: {nameOf(state, state.phase.activePlayerId)}</div>
-              {state.phase.activePlayerId === youId && !busy && (
+            <div className="mt-3 rounded-lg bg-[#f6ead2] p-2 text-sm text-ink">
+              <div>{tr('auction')}: {spaceById(state.phase.propertyId).name}</div>
+              <div>{tr('highBid')} {money(state.phase.highBid)} {state.phase.highBidderId ? `· ${nameOf(state, state.phase.highBidderId)}` : ''}</div>
+              <div>{tr('bidding')}{state.phase.deadline ? ` · ${Math.max(0, Math.ceil((state.phase.deadline - clock) / 1000))} ${tr('seconds')}` : ''}</div>
+              {!state.phase.passed.includes(youId) && !busy && (
                 <div className="mt-2 flex gap-2">
                   <input className="w-20 rounded border px-2" type="number" min={state.phase.highBid + 1} value={bid} onChange={(event) => setBid(Number(event.target.value))} />
-                  <Action label="Bid" onClick={() => onAction({ type: 'auction-bid', amount: bid })} />
-                  <Action label="Pass" onClick={() => onAction({ type: 'auction-pass' })} />
+                  <Action label={tr('bid')} onClick={() => onAction({ type: 'auction-bid', amount: bid })} />
+                  <Action label={tr('pass')} onClick={() => onAction({ type: 'auction-pass' })} />
                 </div>
               )}
             </div>
@@ -173,14 +207,32 @@ export function MatchView({
               );
             })}
           </div>
-          <div className="mt-2 max-h-36 overflow-auto border-t border-[#eadcbf] pt-2 text-xs">
-            {[...state.log].slice(-12).reverse().map((entry) => <p key={entry.id} className="mb-1">{entry.message}</p>)}
+          <div className="mt-2 flex gap-2">
+            <Tiny label={tr('dashboard')} onClick={() => setBooks((value) => !value)} />
+            <Tiny label={tr('history')} onClick={() => setHistory((value) => !value)} />
           </div>
+          {books && you && <Books state={state} youId={youId} tr={tr} />}
+          <div className="mt-2 max-h-36 overflow-auto border-t border-[#eadcbf] pt-2 text-xs">
+            {(history ? [...state.log].reverse() : [...state.log].slice(-12).reverse()).map((entry) => <p key={entry.id} className="mb-1">#{entry.turn} {entry.message}</p>)}
+          </div>
+          <Chat lines={messages ?? localChat} text={chatText} tr={tr} onText={setChatText} onSend={(text) => {
+            if (onChat) onChat(text);
+            else setLocalChat((current) => [...current, { name: you?.name ?? 'You', text }].slice(-30));
+            setChatText('');
+          }} />
         </aside>
       </div>
       {deed && <Deed state={state} propertyId={deed} onClose={() => setDeed(null)} />}
       {tradeOpen && you && <Trade state={state} youId={youId} onClose={() => setTradeOpen(false)} onOffer={(action) => { setTradeOpen(false); onAction(action); }} />}
-      {card && <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center bg-black/30"><article className="paper-panel max-w-md rounded-xl p-6 font-deed text-xl">{card}</article></div>}
+      {counterOpen && state.phase.kind === 'trade' && <Trade state={state} youId={youId} counter onClose={() => setCounterOpen(false)} onOffer={(action) => { setCounterOpen(false); onAction(action); }} />}
+      {card && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30">
+          <article className="paper-panel max-w-md rounded-xl p-6 text-center font-deed text-xl">
+            {card}
+            <div><button className="gold-button mt-4 rounded-md px-4 py-2 text-xs" onClick={onDismissCard}>{tr('ok')}</button></div>
+          </article>
+        </div>
+      )}
       {state.phase.kind === 'ended' && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <article className="paper-panel max-w-md rounded-xl p-8 text-center">
@@ -244,13 +296,58 @@ function Deed({ state, propertyId, onClose }: { state: GameState; propertyId: st
   );
 }
 
-function Trade({ state, youId, onClose, onOffer }: { state: GameState; youId: string; onClose: () => void; onOffer: (action: GameAction) => void }) {
+function Books({ state, youId, tr }: { state: GameState; youId: string; tr: (key: string) => string }) {
+  const you = state.players.find((player) => player.id === youId);
+  let deeds = 0;
+  let mortgages = 0;
+  for (const prop of Object.values(state.properties)) {
+    if (prop.ownerId !== youId) continue;
+    const space = spaceById(prop.id);
+    if (space.kind !== 'street' && space.kind !== 'railroad' && space.kind !== 'utility') continue;
+    if (prop.mortgaged) mortgages += space.mortgage;
+    else deeds += space.price;
+  }
+  const cash = you?.cash ?? 0;
+  const risk = cash < 150 ? 'danger' : cash < 400 ? 'watch' : 'safe';
+  return (
+    <div className="mt-2 rounded-lg bg-[#f6ead2] p-2 text-xs text-ink">
+      <div>{tr('worth')} {money(netWorth(state, youId))}</div>
+      <div>{tr('portfolio')} {money(deeds)}</div>
+      <div>{tr('mortgages')} {money(mortgages)}</div>
+      <div>{tr('rentIn')} {money(you?.rentIn ?? 0)} · {tr('rentOut')} {money(you?.rentOut ?? 0)}</div>
+      <div>{tr('risk')}: {tr(risk)}</div>
+    </div>
+  );
+}
+
+function Chat({ lines, text, tr, onText, onSend }: { lines: Array<{ name: string; text: string }>; text: string; tr: (key: string) => string; onText: (value: string) => void; onSend: (text: string) => void }) {
+  const quick = ['Nice roll', 'Your turn', 'Trade?', 'Ouch', '👍', '🎲'];
+  return (
+    <div className="mt-2 border-t border-[#eadcbf] pt-2 text-xs">
+      <div className="font-display">{tr('chat')}</div>
+      <div className="max-h-20 overflow-auto">
+        {lines.slice(-8).map((line, index) => <p key={`${line.name}-${index}`}>{line.name}: {line.text}</p>)}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {quick.map((line) => <button key={line} className="rounded border px-1" onClick={() => onSend(line)}>{line}</button>)}
+      </div>
+      <form className="mt-1 flex gap-1" onSubmit={(event) => { event.preventDefault(); if (text.trim()) onSend(text.trim()); }}>
+        <input className="min-w-0 flex-1 rounded border px-1" maxLength={80} value={text} onChange={(event) => onText(event.target.value)} />
+        <button className="gold-button rounded px-2 text-[11px]">{tr('send')}</button>
+      </form>
+    </div>
+  );
+}
+
+function Trade({ state, youId, counter, onClose, onOffer }: { state: GameState; youId: string; counter?: boolean; onClose: () => void; onOffer: (action: GameAction) => void }) {
   const others = state.players.filter((player) => player.id !== youId && !player.bankrupt);
-  const [toId, setToId] = useState(others[0]?.id ?? '');
+  const partner = counter && state.phase.kind === 'trade' ? state.phase.offer.fromId : others[0]?.id ?? '';
+  const [toId, setToId] = useState(partner);
   const [offerCash, setOfferCash] = useState(0);
   const [requestCash, setRequestCash] = useState(0);
   const [offerProperties, setOfferProperties] = useState<string[]>([]);
   const [requestProperties, setRequestProperties] = useState<string[]>([]);
+  const [rentShareTurns, setRentShareTurns] = useState(0);
   const mine = Object.values(state.properties).filter((prop) => prop.ownerId === youId && prop.houses === 0);
   const theirs = Object.values(state.properties).filter((prop) => prop.ownerId === toId && prop.houses === 0);
   const toggle = (list: string[], id: string, set: (ids: string[]) => void) => set(list.includes(id) ? list.filter((entry) => entry !== id) : [...list, id]);
@@ -266,6 +363,9 @@ function Trade({ state, youId, onClose, onOffer }: { state: GameState; youId: st
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
           <label>Your cash <input className="w-full rounded border px-2" type="number" min={0} value={offerCash} onChange={(event) => setOfferCash(Number(event.target.value))} /></label>
           <label>Their cash <input className="w-full rounded border px-2" type="number" min={0} value={requestCash} onChange={(event) => setRequestCash(Number(event.target.value))} /></label>
+          <label className="col-span-2">Future rent, half of the next collections
+            <input className="ml-2 w-16 rounded border px-2" type="number" min={0} max={6} value={rentShareTurns} onChange={(event) => setRentShareTurns(Number(event.target.value))} />
+          </label>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
           <div>
@@ -278,7 +378,7 @@ function Trade({ state, youId, onClose, onOffer }: { state: GameState; youId: st
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <button className="gold-button rounded-md px-3 py-2 text-xs" onClick={() => onOffer({ type: 'propose-trade', toId, offerCash, requestCash, offerProperties, requestProperties, offerCards: 0, requestCards: 0 })}>Send offer</button>
+          <button className="gold-button rounded-md px-3 py-2 text-xs" onClick={() => onOffer({ type: counter ? 'counter-trade' : 'propose-trade', toId, offerCash, requestCash, offerProperties, requestProperties, offerCards: 0, requestCards: 0, rentShareTurns })}>Send offer</button>
           <button className="rounded-md border px-3 py-2 text-xs" onClick={onClose}>Cancel</button>
         </div>
       </article>

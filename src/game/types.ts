@@ -41,6 +41,8 @@ export interface GameRules {
   /** When true, Income Tax may be paid as a flat fee or 10% of net worth. */
   incomeTaxChoice: boolean;
   maxJailTurns: number;
+  /** Seconds of real-time bidding. 0 keeps a turn-based auction. */
+  auctionSeconds: number;
   /** How the host treats a disconnected human on their turn. */
   disconnectMode: 'wait' | 'autoplay';
 }
@@ -58,6 +60,7 @@ export const CLASSIC_RULES: GameRules = {
   luxuryTax: 75,
   incomeTaxChoice: true,
   maxJailTurns: 3,
+  auctionSeconds: 20,
   disconnectMode: 'autoplay',
 };
 
@@ -99,6 +102,8 @@ export interface PlayerState {
   difficulty: Difficulty;
   personality: Personality;
   connected: boolean;
+  rentIn: number;
+  rentOut: number;
 }
 
 export interface PropertyState {
@@ -141,6 +146,14 @@ export interface TradeOffer {
   requestProperties: string[];
   offerCards: number;
   requestCards: number;
+  /** How many future rent collections the new owner shares, at half. */
+  rentShareTurns: number;
+}
+
+export interface RentAgreement {
+  ownerId: string;
+  payeeId: string;
+  turnsLeft: number;
 }
 
 export type Phase =
@@ -155,6 +168,8 @@ export type Phase =
       activePlayerId: string;
       passed: string[];
       order: string[];
+      /** Epoch ms. 0 means the auction is turn-based. */
+      deadline: number;
       then: Resume;
     }
   | {
@@ -197,6 +212,7 @@ export interface GameState {
   lastDice: [number, number] | null;
   freeParking: number;
   bank: { houses: number; hotels: number };
+  agreements: RentAgreement[];
   log: LogEntry[];
 }
 
@@ -207,6 +223,7 @@ export type GameAction =
   | { type: 'pay-tax'; method: 'flat' | 'percent' }
   | { type: 'auction-bid'; amount: number }
   | { type: 'auction-pass' }
+  | { type: 'auction-close' }
   | { type: 'end-turn' }
   | { type: 'pay-jail' }
   | { type: 'use-jail-card' }
@@ -223,6 +240,17 @@ export type GameAction =
       requestProperties: string[];
       offerCards: number;
       requestCards: number;
+      rentShareTurns?: number;
+    }
+  | {
+      type: 'counter-trade';
+      offerCash: number;
+      requestCash: number;
+      offerProperties: string[];
+      requestProperties: string[];
+      offerCards: number;
+      requestCards: number;
+      rentShareTurns?: number;
     }
   | { type: 'accept-trade' }
   | { type: 'reject-trade' }
@@ -268,4 +296,5 @@ export interface NewGameConfig {
   rules?: Partial<GameRules>;
   mode: 'solo' | 'lan';
   seed?: number;
+  extraCards?: Array<{ text: string; amount: number }>;
 }

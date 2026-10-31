@@ -21,6 +21,7 @@ export function openAuction(state: GameState, ctx: Ctx, propertyId: string, then
     activePlayerId: order[0],
     passed: [],
     order,
+    deadline: state.rules.auctionSeconds > 0 ? Date.now() + state.rules.auctionSeconds * 1000 : 0,
     then,
   };
   const space = spaceById(propertyId);
@@ -79,10 +80,22 @@ function advance(state: GameState, ctx: Ctx, done: AuctionDone): void {
   finish(state, ctx, done);
 }
 
+export function auctionClose(state: GameState, ctx: Ctx, done: AuctionDone): string | null {
+  if (state.phase.kind !== 'auction') return 'There is no auction';
+  const phase = state.phase;
+  if (!phase.deadline) return 'This auction is not timed';
+  if (Date.now() + 250 < phase.deadline) return 'The auction is still open';
+  finish(state, ctx, done);
+  return null;
+}
+
 export function auctionBid(state: GameState, ctx: Ctx, actorId: string, amount: number, done: AuctionDone): string | null {
   if (state.phase.kind !== 'auction') return 'There is no auction';
   const phase = state.phase;
-  if (actorId !== phase.activePlayerId) return 'It is not your bid';
+  const open = phase.deadline > 0;
+  if (!phase.order.includes(actorId)) return 'You are not in this auction';
+  if (phase.passed.includes(actorId)) return 'You are out of this auction';
+  if (!open && actorId !== phase.activePlayerId) return 'It is not your bid';
   if (!Number.isInteger(amount) || amount < 1) return 'Enter a whole-dollar bid';
   if (amount <= phase.highBid) return `The bid must be higher than $${phase.highBid}`;
   const bidder = playerById(state, actorId);
@@ -90,6 +103,9 @@ export function auctionBid(state: GameState, ctx: Ctx, actorId: string, amount: 
   if (bidder.cash < amount) return 'You cannot bid more cash than you hold';
   phase.highBid = amount;
   phase.highBidderId = actorId;
+  if (phase.deadline > 0 && state.rules.auctionSeconds > 0) {
+    phase.deadline = Date.now() + state.rules.auctionSeconds * 1000;
+  }
   log(state, ctx, `${bidder.name} bids $${amount}.`);
   advance(state, ctx, done);
   return null;
@@ -98,7 +114,9 @@ export function auctionBid(state: GameState, ctx: Ctx, actorId: string, amount: 
 export function auctionPass(state: GameState, ctx: Ctx, actorId: string, done: AuctionDone): string | null {
   if (state.phase.kind !== 'auction') return 'There is no auction';
   const phase = state.phase;
-  if (actorId !== phase.activePlayerId) return 'It is not your bid';
+  const open = phase.deadline > 0;
+  if (!open && actorId !== phase.activePlayerId) return 'It is not your bid';
+  if (!phase.order.includes(actorId) || phase.passed.includes(actorId)) return 'You are out of this auction';
   if (!phase.passed.includes(actorId)) phase.passed.push(actorId);
   log(state, ctx, `${playerById(state, actorId).name} passes.`);
   advance(state, ctx, done);

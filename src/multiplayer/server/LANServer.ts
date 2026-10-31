@@ -23,6 +23,7 @@ interface Ack {
   duplicate?: boolean;
   playerId?: string;
   sessionToken?: string;
+  spectator?: boolean;
 }
 
 export class LANServer {
@@ -35,6 +36,7 @@ export class LANServer {
   private recentActionIds = new Set<string>();
   private disconnectedAt = new Map<string, number>();
   private aiTimer: NodeJS.Timeout | null = null;
+  private auctionTimer: NodeJS.Timeout | null = null;
   private rates = new Map<string, number[]>();
   port = 0;
   private closed = false;
@@ -70,6 +72,7 @@ export class LANServer {
     if (this.closed) return;
     this.closed = true;
     if (this.aiTimer) clearTimeout(this.aiTimer);
+    if (this.auctionTimer) clearTimeout(this.auctionTimer);
     this.room.status = 'closed';
     this.room.closedReason = reason;
     this.io?.emit('room:closed', { reason });
@@ -170,6 +173,17 @@ export class LANServer {
           ack?.({ ok: true, playerId: host.id, sessionToken: host.sessionToken });
           return;
         }
+      }
+
+      if (parsed.data.spectator) {
+        const sessionToken = randomBytes(24).toString('hex');
+        const created = this.room.addSpectator(parsed.data.name, sessionToken);
+        if (typeof created === 'string') return fail(ack, created);
+        this.attach(socket, created.id);
+        this.emitLobby();
+        this.emitGame();
+        ack?.({ ok: true, playerId: created.id, sessionToken, spectator: true });
+        return;
       }
 
       if (this.room.status === 'playing') {
@@ -275,6 +289,18 @@ export class LANServer {
       this.scheduleAi();
     });
 
+    socket.on('table:chat', (raw: unknown) => {
+      if (!this.allow(socket.id)) return;
+      const text = typeof raw === 'string' ? raw : '';
+      const clean = text.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80);
+      if (!clean) return;
+      const id = this.playerBySocket.get(socket.id);
+      const name = this.room.players.find((player) => player.id === id)?.name
+        ?? this.room.spectators.find((spectator) => spectator.id === id)?.name;
+      if (!name) return;
+      this.io?.emit('table:chat', { name, text: clean, at: Date.now() });
+    });
+
     socket.on('disconnect', () => {
       const playerId = this.playerBySocket.get(socket.id);
       this.playerBySocket.delete(socket.id);
@@ -346,6 +372,26 @@ export class LANServer {
     this.io?.emit('game:state', { state: decorated, events, actionId });
     const sessions = Object.fromEntries(this.room.players.filter((player) => player.sessionToken).map((player) => [player.id, player.sessionToken]));
     this.options.onState?.(decorated, sessions);
+    this.armAuction();
+  }
+
+  private armAuction(): void {
+    if (this.auctionTimer) clearTimeout(this.auctionTimer);
+    this.auctionTimer = null;
+    const phase = this.engine?.getState().phase;
+    if (!this.engine || phase?.kind !== 'auction' || !phase.deadline) return;
+    const wait = Math.max(0, phase.deadline - Date.now()) + 40;
+    this.auctionTimer = setTimeout(() => {
+      this.auctionTimer = null;
+      if (!this.engine) return;
+      const current = this.engine.getState();
+      if (current.phase.kind !== 'auction') return;
+      const actor = current.phase.order[0];
+      if (!actor) return;
+      const result = this.engine.apply(actor, { type: 'auction-close' });
+      if (result.ok) this.push(result.state, result.events);
+      this.scheduleAi();
+    }, wait);
   }
 
   private scheduleAi(): void {

@@ -3,6 +3,7 @@ import type { Difficulty, GameModeId, GameState, NewGameConfig, Personality, Tok
 import { describeRules, GAME_MODES, rulesForMode, rulesPatch, tableRules } from '../game/modes';
 import { THEMES } from '../settings/themes';
 import { TableCrest } from '../components/Marks';
+import { t } from '../i18n';
 import { LANClient } from '../multiplayer/client/LANClient';
 import type { LobbySnapshot } from '../multiplayer/server/RoomManager';
 import type { FoundTable, HostInfo, SaveSummary } from '../platform/types';
@@ -79,6 +80,7 @@ export function SoloSetup({ onBack, onStart }: { onBack: () => void; onStart: (c
         onStart({
           mode: 'solo',
           rules: tableRules(settings),
+          extraCards: settings.extraCardText.trim() ? [{ text: settings.extraCardText, amount: settings.extraCardAmount }] : undefined,
           players: [
             { name: settings.playerName || 'Player', token: settings.token, isAI: false },
             ...Array.from({ length: count }, (_, index) => ({
@@ -112,6 +114,30 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           ))}
         </div>
       </div>
+      <label className="block text-sm">{t(settings.language, 'language')}
+        <select className="ml-2 rounded px-2" value={settings.language} onChange={(event) => void update({ language: event.target.value === 'ru' ? 'ru' : 'en' })}>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+        </select>
+      </label>
+      <label className="block text-sm">{t(settings.language, 'dice')}
+        <select className="ml-2 rounded px-2" value={settings.diceStyle} onChange={(event) => void update({ diceStyle: event.target.value as 'ivory' | 'ebony' | 'wood' })}>
+          <option value="ivory">Ivory</option>
+          <option value="ebony">Ebony</option>
+          <option value="wood">Wood</option>
+        </select>
+      </label>
+      <label className="block text-sm">{t(settings.language, 'lighting')}
+        <select className="ml-2 rounded px-2" value={settings.lighting} onChange={(event) => void update({ lighting: event.target.value === 'night' ? 'night' : 'day' })}>
+          <option value="day">{t(settings.language, 'day')}</option>
+          <option value="night">{t(settings.language, 'night')}</option>
+        </select>
+      </label>
+      <label className="flex items-center justify-between text-sm">{t(settings.language, 'commentary')} <input type="checkbox" checked={settings.commentary} onChange={(event) => void update({ commentary: event.target.checked })} /></label>
+      <label className="block text-sm">{t(settings.language, 'houseCards')}
+        <input className="mt-1 w-full rounded px-2 py-1" maxLength={80} value={settings.extraCardText} onChange={(event) => void update({ extraCardText: event.target.value })} />
+      </label>
+      <p className="menu-soft text-xs">Games {settings.played} · Wins {settings.won}</p>
       <label className="flex items-center justify-between text-sm">Sound <input type="checkbox" checked={settings.sound} onChange={(event) => void update({ sound: event.target.checked })} /></label>
       <label className="block text-sm">Volume
         <input className="w-full" type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(event) => void update({ volume: Number(event.target.value) })} />
@@ -302,6 +328,7 @@ export function JoinScreen({ onBack }: { onBack: () => void }) {
   const [youId, setYouId] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('Looking for tables on this network…');
+  const [spectator, setSpectator] = useState(false);
 
   useEffect(() => {
     const client = new LANClient();
@@ -340,7 +367,7 @@ export function JoinScreen({ onBack }: { onBack: () => void }) {
     }
     try {
       await client.connect(`http://${address}:${hostPort}`);
-      const joined = await client.join({ roomCode: roomCode.toUpperCase(), name: settings.playerName, token: settings.token });
+      const joined = await client.join({ roomCode: roomCode.toUpperCase(), name: settings.playerName, token: settings.token, spectator });
       if (!joined.ok || !joined.playerId) throw new Error(joined.error ?? 'Join failed');
       setYouId(joined.playerId);
       localStorage.setItem('monopoly-session', JSON.stringify({ address, port: hostPort, roomCode, name: settings.playerName, token: settings.token, sessionToken: joined.sessionToken }));
@@ -370,6 +397,7 @@ export function JoinScreen({ onBack }: { onBack: () => void }) {
         <input className="rounded px-2 py-1 text-ink" placeholder="Host IP" value={ip} onChange={(event) => setIp(event.target.value)} />
         <input className="rounded px-2 py-1 text-ink" type="number" value={port} onChange={(event) => setPort(Number(event.target.value))} />
         <input className="rounded px-2 py-1 text-ink uppercase" placeholder="MONO482" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} />
+        <label className="flex items-center justify-between">{t(settings.language, 'spectator')} <input type="checkbox" checked={spectator} onChange={(event) => setSpectator(event.target.checked)} /></label>
         <button className="gold-button rounded-md px-3 py-2" onClick={() => void connect(ip, port, code)}>Connect</button>
       </div>
       {lobby && <LobbyPanel lobby={lobby} youId={youId} isHost={false} />}
@@ -392,6 +420,7 @@ function LobbyPanel({ lobby, youId, isHost }: { lobby: LobbySnapshot; youId: str
           </li>
         ))}
         {Array.from({ length: Math.max(0, 6 - lobby.players.length) }, (_, index) => <li key={index} className="text-[#f0ddb8]">Open seat</li>)}
+        {lobby.spectators?.map((spectator) => <li key={spectator.id}>{spectator.name} · watching</li>)}
       </ul>
       {isHost && lobby.status === 'playing' && <p className="mt-2 text-sm">This computer keeps the official game. If you quit, the table closes. Host migration is not available.</p>}
     </div>

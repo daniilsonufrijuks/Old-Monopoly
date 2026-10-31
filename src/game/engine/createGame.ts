@@ -1,5 +1,5 @@
 import { ownableSpaces } from '../board/spaces';
-import { deckIds } from '../cards/decks';
+import { CARD_MAP, deckIds } from '../cards/decks';
 import type { GameState, NewGameConfig, PlayerState, TokenId } from '../types';
 import { CLASSIC_RULES } from '../types';
 import { uid } from './ops';
@@ -13,6 +13,20 @@ export function mulberry32(seed: number): () => number {
     next = (next + Math.imul(next ^ (next >>> 7), 61 | next)) ^ next;
     return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function withExtraCards(ids: string[], extra: NewGameConfig['extraCards']): string[] {
+  const cards = (extra ?? []).slice(0, 4).filter((card) => card.text.trim() && Number.isInteger(card.amount));
+  cards.forEach((card, index) => {
+    const id = `custom-${index}`;
+    CARD_MAP[id] = {
+      id,
+      deck: 'chance',
+      text: card.text.trim().slice(0, 80),
+      action: { type: 'cash', amount: Math.max(-500, Math.min(500, card.amount)) },
+    };
+  });
+  return [...ids, ...cards.map((_, index) => `custom-${index}`)];
 }
 
 function shuffle(ids: string[], rng: () => number): string[] {
@@ -57,6 +71,8 @@ export function createInitialState(config: NewGameConfig, seed = 1): GameState {
     difficulty: player.difficulty ?? 'normal',
     personality: player.personality ?? 'cautious',
     connected: true,
+    rentIn: 0,
+    rentOut: 0,
   }));
   const first = Math.floor(rng() * players.length);
   const ordered = players.slice(first).concat(players.slice(0, first));
@@ -70,7 +86,7 @@ export function createInitialState(config: NewGameConfig, seed = 1): GameState {
     currentPlayerIndex: 0,
     properties,
     decks: {
-      chance: shuffle(deckIds('chance'), rng),
+      chance: shuffle(withExtraCards(deckIds('chance'), config.extraCards), rng),
       community: shuffle(deckIds('community'), rng),
       chanceDiscard: [],
       communityDiscard: [],
@@ -83,6 +99,7 @@ export function createInitialState(config: NewGameConfig, seed = 1): GameState {
     lastDice: null,
     freeParking: 0,
     bank: { houses: 32, hotels: 12 },
+    agreements: [],
     log: [],
   };
   state.log.push({

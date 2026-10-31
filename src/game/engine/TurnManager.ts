@@ -3,7 +3,7 @@ import { isOwnable, spaceById, spaceByIndex } from '../board/spaces';
 import { netWorth } from '../rules/building';
 import { rentOwed } from '../rules/rent';
 import type { CardDef, GameAction, GameState, Resume } from '../types';
-import { auctionBid, auctionPass, openAuction } from './AuctionManager';
+import { auctionBid, auctionClose, auctionPass, openAuction } from './AuctionManager';
 import type { Ctx } from './context';
 import { declareBankruptcy } from './EconomyManager';
 import { credit, currentPlayer, declareScoreWinner, declareWinner, ended, log, nextAliveIndex, playerById, transfer } from './ops';
@@ -580,6 +580,8 @@ export function dispatch(state: GameState, ctx: Ctx, actorId: string, action: Ga
       return auctionBid(state, ctx, actorId, action.amount, doneAuction);
     case 'auction-pass':
       return auctionPass(state, ctx, actorId, doneAuction);
+    case 'auction-close':
+      return auctionClose(state, ctx, doneAuction);
     case 'end-turn':
       if (state.phase.kind !== 'manage') return 'You still have to finish the turn';
       if (currentPlayer(state).id !== actorId) return 'It is not your turn';
@@ -639,6 +641,7 @@ export function dispatch(state: GameState, ctx: Ctx, actorId: string, action: Ga
         requestProperties: action.requestProperties,
         offerCards: action.offerCards,
         requestCards: action.requestCards,
+        rentShareTurns: action.rentShareTurns ?? 0,
       };
       const error = validateOffer(state, actorId, draft);
       if (error) return error;
@@ -646,6 +649,30 @@ export function dispatch(state: GameState, ctx: Ctx, actorId: string, action: Ga
       state.tradesThisTurn += 1;
       state.phase = { kind: 'trade', returnKind, offer: { ...draft, id: makeOfferId(), fromId: actorId } };
       log(state, ctx, `${player.name} offers a trade to ${playerById(state, action.toId).name}.`);
+      return null;
+    }
+    case 'counter-trade': {
+      if (state.phase.kind !== 'trade') return 'There is no trade to counter';
+      if (state.phase.offer.toId !== actorId) return 'This trade is not for you';
+      const previous = state.phase.offer;
+      const draft = {
+        toId: previous.fromId,
+        offerCash: action.offerCash,
+        requestCash: action.requestCash,
+        offerProperties: action.offerProperties,
+        requestProperties: action.requestProperties,
+        offerCards: action.offerCards,
+        requestCards: action.requestCards,
+        rentShareTurns: action.rentShareTurns ?? 0,
+      };
+      const error = validateOffer(state, actorId, draft);
+      if (error) return error;
+      state.phase = {
+        kind: 'trade',
+        returnKind: state.phase.returnKind,
+        offer: { ...draft, id: makeOfferId(), fromId: actorId },
+      };
+      log(state, ctx, `${player.name} counters the trade.`);
       return null;
     }
     case 'accept-trade': {

@@ -90,12 +90,18 @@ export function normalizeRules(rules: Partial<GameRules> | undefined): GameRules
     modeId,
     houseCostFactor: factor,
     turnLimit,
+    auctionSeconds: auctionSeconds(rules?.auctionSeconds),
     landOnGoDouble: Boolean(rules?.landOnGoDouble),
     goSalary: positiveInt(rules?.goSalary, CLASSIC_RULES.goSalary, 100, 500),
     startingCash: positiveInt(rules?.startingCash, CLASSIC_RULES.startingCash, 500, 3000),
     incomeTax: positiveInt(rules?.incomeTax, CLASSIC_RULES.incomeTax, 0, 500),
     luxuryTax: positiveInt(rules?.luxuryTax, CLASSIC_RULES.luxuryTax, 0, 500),
   };
+}
+
+function auctionSeconds(value: number | undefined): number {
+  if (!Number.isInteger(value)) return CLASSIC_RULES.auctionSeconds;
+  return Math.min(60, Math.max(0, value as number));
 }
 
 function positiveInt(value: number | undefined, fallback: number, min: number, max: number): number {
@@ -116,6 +122,7 @@ export function rulesPatch(rules: GameRules) {
     incomeTax: rules.incomeTax,
     luxuryTax: rules.luxuryTax,
     incomeTaxChoice: rules.incomeTaxChoice,
+    auctionSeconds: rules.auctionSeconds,
   };
 }
 
@@ -123,5 +130,6 @@ export function describeRules(rules: GameRules): string {
   const clock = rules.turnLimit > 0 ? `Ends after ${rules.turnLimit} turns` : 'Last player standing';
   const houses = rules.houseCostFactor < 1 ? 'Half-price houses' : 'Full-price houses';
   const go = rules.landOnGoDouble ? `Land on GO pays $${rules.goSalary * 2}` : `GO pays $${rules.goSalary}`;
-  return `${modeById(rules.modeId).name} · $${rules.startingCash} · ${go} · ${houses} · ${clock}`;
+  const auction = rules.auctionSeconds > 0 ? `${rules.auctionSeconds}s auctions` : 'Turn-based auctions';
+  return `${modeById(rules.modeId).name} · $${rules.startingCash} · ${go} · ${houses} · ${auction} · ${clock}`;
 }

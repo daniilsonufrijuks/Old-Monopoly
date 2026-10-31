@@ -22,6 +22,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSettings(loaded);
       configureSound(loaded.sound, loaded.volume);
       document.documentElement.dataset.theme = isTheme(loaded.theme) ? loaded.theme : 'classic';
+      document.documentElement.dataset.lighting = loaded.lighting === 'night' ? 'night' : 'day';
+      document.documentElement.dataset.dice = loaded.diceStyle ?? 'ivory';
       setReady(true);
     });
   }, []);
@@ -31,6 +33,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(next);
     configureSound(next.sound, next.volume);
     document.documentElement.dataset.theme = isTheme(next.theme) ? next.theme : 'classic';
+    document.documentElement.dataset.lighting = next.lighting === 'night' ? 'night' : 'day';
+    document.documentElement.dataset.dice = next.diceStyle ?? 'ivory';
     await store.saveSettings(next);
   }
 

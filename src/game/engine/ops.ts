@@ -51,6 +51,10 @@ export function transfer(
     reason,
     counterparty: toId,
   });
+  if (reason.startsWith('rent at ')) {
+    from.rentOut += amount;
+    if (toId !== 'bank') playerById(state, toId).rentIn += amount;
+  }
   if (toId !== 'bank') {
     ctx.events.push({
       type: 'cash',
@@ -60,8 +64,24 @@ export function transfer(
       counterparty: fromId,
     });
   }
+  if (toId !== 'bank' && reason.startsWith('rent at ')) shareFutureRent(state, ctx, toId, amount);
   const target = toId === 'bank' ? 'the bank' : playerById(state, toId).name;
   log(state, ctx, `${from.name} pays $${amount} to ${target} (${reason}).`);
+}
+
+function shareFutureRent(state: GameState, ctx: Ctx, ownerId: string, amount: number): void {
+  const deal = (state.agreements ?? []).find((entry) => entry.ownerId === ownerId && entry.turnsLeft > 0);
+  if (!deal) return;
+  deal.turnsLeft -= 1;
+  const share = Math.floor(amount / 2);
+  const owner = playerById(state, ownerId);
+  const payee = state.players.find((player) => player.id === deal.payeeId);
+  if (share <= 0 || !payee || payee.bankrupt || owner.cash < share) return;
+  owner.cash -= share;
+  payee.cash += share;
+  owner.rentOut += share;
+  payee.rentIn += share;
+  log(state, ctx, `${owner.name} pays $${share} to ${payee.name} (agreed share of rent).`);
 }
 
 export function credit(state: GameState, ctx: Ctx, playerId: string, amount: number, reason: string): void {

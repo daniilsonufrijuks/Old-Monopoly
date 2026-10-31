@@ -48,4 +48,8 @@ export const sfx = {
   win() {
     [523, 659, 784, 1046].forEach((freq, index) => tone(freq, 0.18, 'triangle', 0.06, index * 0.12));
   },
+  build() {
+    tone(520, 0.06, 'triangle', 0.04);
+    tone(680, 0.09, 'triangle', 0.04, 0.07);
+  },
 };

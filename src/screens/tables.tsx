@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sfx } from '../audio/sound';
+import { cardText, speak } from '../i18n';
 import { chooseAction, fallbackAction, isAiTurn } from '../game/ai/AIController';
 import { GameEngine } from '../game/engine/GameEngine';
 import { actingPlayerId } from '../game/engine/TurnManager';
@@ -15,7 +16,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; resume?: GameState; onExit: () => void }) {
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const [engine] = useState(() => (resume ? new GameEngine(structuredClone(resume)) : GameEngine.create(setup!)));
@@ -28,7 +29,24 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const pumping = useRef(false);
+  const dismissCard = useRef<(() => void) | null>(null);
+  const recorded = useRef(false);
   const youId = state.players.find((player) => !player.isAI)?.id ?? '';
+
+  function holdCard(text: string): Promise<void> {
+    setCard(text);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        setCard(null);
+        resolve();
+      }, settingsRef.current.reducedMotion ? 500 : 8000);
+      dismissCard.current = () => {
+        clearTimeout(timer);
+        setCard(null);
+        resolve();
+      };
+    });
+  }
 
   async function present(events: GameEvent[]) {
     const pace = speedMs(settingsRef.current.turnSpeed, settingsRef.current.reducedMotion);
@@ -48,10 +66,11 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
       } else if (event.type === 'cash' && event.delta > 0) sfx.cash();
       else if (event.type === 'jail') sfx.jail();
       else if (event.type === 'card') {
-        setCard(event.text);
-        await wait(settingsRef.current.reducedMotion ? 180 : 1000);
-        setCard(null);
-      } else if (event.type === 'win') sfx.win();
+        const text = cardText(settingsRef.current.language, event.cardId, event.text);
+        if (settingsRef.current.commentary) speak(text, settingsRef.current.language);
+        await holdCard(text);
+      } else if (event.type === 'build') sfx.build();
+      else if (event.type === 'win') sfx.win();
     }
   }
 
@@ -97,6 +116,13 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
     }
   }, [engine, state.phase.kind, state.turn]);
 
+  useEffect(() => {
+    if (state.phase.kind !== 'ended' || recorded.current) return;
+    recorded.current = true;
+    const won = state.phase.winnerId === youId;
+    void update({ played: settingsRef.current.played + 1, won: settingsRef.current.won + (won ? 1 : 0) });
+  }, [state.phase, update, youId]);
+
   async function onAction(action: GameAction) {
     if (busy || !youId) return;
     setError('');
@@ -126,6 +152,7 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
       note={note || 'Offline solo'}
       canSave
       onAction={(action) => void onAction(action)}
+      onDismissCard={() => dismissCard.current?.()}
       onSave={() => {
         void store.saveGame({
           id: `solo-${Date.now()}`,
@@ -152,6 +179,8 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('Connected');
+  const [messages, setMessages] = useState<Array<{ name: string; text: string }>>([]);
+  const dismissCard = useRef<(() => void) | null>(null);
   const queue = useRef(Promise.resolve());
 
   useEffect(() => {
@@ -179,10 +208,22 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
       } else if (event.type === 'cash' && event.delta > 0) sfx.cash();
       else if (event.type === 'jail') sfx.jail();
       else if (event.type === 'card') {
-        setCard(event.text);
-        await wait(settingsRef.current.reducedMotion ? 180 : 1000);
-        setCard(null);
-      } else if (event.type === 'win') sfx.win();
+        const text = cardText(settingsRef.current.language, event.cardId, event.text);
+        if (settingsRef.current.commentary) speak(text, settingsRef.current.language);
+        await new Promise<void>((resolve) => {
+          setCard(text);
+          const timer = setTimeout(() => {
+            setCard(null);
+            resolve();
+          }, settingsRef.current.reducedMotion ? 500 : 8000);
+          dismissCard.current = () => {
+            clearTimeout(timer);
+            setCard(null);
+            resolve();
+          };
+        });
+      } else if (event.type === 'build') sfx.build();
+      else if (event.type === 'win') sfx.win();
     }
   }
 
@@ -201,10 +242,12 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
       });
     });
     const stopStatus = client.onStatus(setNote);
+    const stopChat = client.onChat((message) => setMessages((current) => [...current, message].slice(-40)));
     const stopClosed = client.onClosed((payload) => setError(payload.reason));
     return () => {
       stopGame();
       stopStatus();
+      stopChat();
       stopClosed();
     };
   }, [client]);
@@ -229,6 +272,9 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
           if (!result.ok && !result.duplicate) setError(result.error ?? 'The host rejected that action');
         });
       }}
+      onDismissCard={() => dismissCard.current?.()}
+      messages={messages}
+      onChat={(text) => client.chat(text)}
       onSave={() => {
         void store.saveGame({ id: `lan-${Date.now()}`, name: `LAN turn ${state.turn}`, mode: 'lan', updatedAt: Date.now(), state }).then((result) => {
           setNote(result.ok ? 'Snapshot saved on this computer' : result.error ?? 'Save failed');

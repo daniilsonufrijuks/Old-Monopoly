@@ -8,6 +8,7 @@ export interface JoinResult {
   duplicate?: boolean;
   playerId?: string;
   sessionToken?: string;
+  spectator?: boolean;
 }
 
 type Handler<T> = (payload: T) => void;
@@ -15,11 +16,12 @@ type Handler<T> = (payload: T) => void;
 export class LANClient {
   private socket: Socket | null = null;
   private welcomed = false;
-  private session: { roomCode: string; name: string; token: TokenId; hostToken?: string; sessionToken?: string } | null = null;
+  private session: { roomCode: string; name: string; token: TokenId; hostToken?: string; sessionToken?: string; spectator?: boolean } | null = null;
   private lobbyHandlers = new Set<Handler<LobbySnapshot>>();
   private gameHandlers = new Set<Handler<{ state: GameState; events: GameEvent[]; actionId?: string }>>();
   private closedHandlers = new Set<Handler<{ reason: string }>>();
   private statusHandlers = new Set<Handler<string>>();
+  private chatHandlers = new Set<Handler<{ name: string; text: string; at: number }>>();
 
   connect(url: string): Promise<void> {
     this.disconnect();
@@ -36,6 +38,7 @@ export class LANClient {
     });
     socket.on('room:closed', (payload: { reason: string }) => this.closedHandlers.forEach((handler) => handler(payload)));
     socket.on('game:error', (payload: { message: string }) => this.statusHandlers.forEach((handler) => handler(payload.message)));
+    socket.on('table:chat', (payload: { name: string; text: string; at: number }) => this.chatHandlers.forEach((handler) => handler(payload)));
     socket.on('connect', () => {
       this.statusHandlers.forEach((handler) => handler('Connected'));
       if (this.welcomed && this.session) void this.join(this.session);
@@ -57,7 +60,7 @@ export class LANClient {
     });
   }
 
-  join(input: { roomCode: string; name: string; token: TokenId; hostToken?: string; sessionToken?: string }): Promise<JoinResult> {
+  join(input: { roomCode: string; name: string; token: TokenId; hostToken?: string; sessionToken?: string; spectator?: boolean }): Promise<JoinResult> {
     this.session = input;
     return this.emitAck('lobby:join', input).then((result) => {
       if (result.ok) {
@@ -88,6 +91,10 @@ export class LANClient {
     return this.emitAck('lobby:start', undefined);
   }
 
+  chat(text: string): void {
+    this.socket?.emit('table:chat', text);
+  }
+
   act(actionId: string, action: GameAction): Promise<JoinResult> {
     return this.emitAck('game:action', { actionId, action });
   }
@@ -95,6 +102,11 @@ export class LANClient {
   onLobby(handler: Handler<LobbySnapshot>): () => void {
     this.lobbyHandlers.add(handler);
     return () => this.lobbyHandlers.delete(handler);
+  }
+
+  onChat(handler: Handler<{ name: string; text: string; at: number }>): () => void {
+    this.chatHandlers.add(handler);
+    return () => this.chatHandlers.delete(handler);
   }
 
   onGame(handler: Handler<{ state: GameState; events: GameEvent[]; actionId?: string }>): () => void {

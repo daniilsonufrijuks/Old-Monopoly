@@ -13,6 +13,7 @@ export const gameActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pay-tax'), method: z.enum(['flat', 'percent']) }),
   z.object({ type: z.literal('auction-bid'), amount: z.number().int().positive().max(100000) }),
   z.object({ type: z.literal('auction-pass') }),
+  z.object({ type: z.literal('auction-close') }),
   z.object({ type: z.literal('end-turn') }),
   z.object({ type: z.literal('pay-jail') }),
   z.object({ type: z.literal('use-jail-card') }),
@@ -29,6 +30,17 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     requestProperties: z.array(z.string().max(40)).max(28),
     offerCards: z.number().int().min(0).max(2),
     requestCards: z.number().int().min(0).max(2),
+    rentShareTurns: z.number().int().min(0).max(6).optional(),
+  }),
+  z.object({
+    type: z.literal('counter-trade'),
+    offerCash: z.number().int().min(0).max(100000),
+    requestCash: z.number().int().min(0).max(100000),
+    offerProperties: z.array(z.string().max(40)).max(28),
+    requestProperties: z.array(z.string().max(40)).max(28),
+    offerCards: z.number().int().min(0).max(2),
+    requestCards: z.number().int().min(0).max(2),
+    rentShareTurns: z.number().int().min(0).max(6).optional(),
   }),
   z.object({ type: z.literal('accept-trade') }),
   z.object({ type: z.literal('reject-trade') }),
@@ -43,6 +55,7 @@ export const joinSchema = z.object({
   token: z.enum(TOKEN_IDS),
   hostToken: z.string().min(10).max(128).optional(),
   sessionToken: z.string().min(10).max(128).optional(),
+  spectator: z.boolean().optional(),
 });
 
 export const rulesPatchSchema = z.object({
@@ -57,6 +70,7 @@ export const rulesPatchSchema = z.object({
   incomeTax: z.number().int().min(0).max(500).optional(),
   luxuryTax: z.number().int().min(0).max(500).optional(),
   incomeTaxChoice: z.boolean().optional(),
+  auctionSeconds: z.number().int().min(0).max(60).optional(),
   disconnectMode: z.enum(['wait', 'autoplay']).optional(),
 }).strict();
 

@@ -1,4 +1,5 @@
 import type { GameModeId, GameState, TokenId } from '../game/types';
+import type { Language } from '../i18n';
 import type { ThemeId } from '../settings/themes';
 import type { DiscoveryBeacon } from '../multiplayer/protocol';
 import type { SaveRecord } from '../storage/validate';
@@ -12,6 +13,14 @@ export interface Settings {
   turnSpeed: 'relaxed' | 'normal' | 'fast';
   theme: ThemeId;
   gameMode: GameModeId;
+  language: Language;
+  diceStyle: 'ivory' | 'ebony' | 'wood';
+  lighting: 'day' | 'night';
+  commentary: boolean;
+  played: number;
+  won: number;
+  extraCardText: string;
+  extraCardAmount: number;
   port: number;
   startingCash: number;
   freeParkingPot: boolean;

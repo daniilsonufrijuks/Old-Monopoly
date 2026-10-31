@@ -20,6 +20,13 @@ export function validateGameState(input: unknown): { ok: true; state: GameState 
   try {
     const copy = structuredClone(state);
     copy.rules = normalizeRules(copy.rules);
+    if (!Array.isArray(copy.agreements)) copy.agreements = [];
+    for (const player of copy.players) {
+      if (!Number.isInteger(player.rentIn)) player.rentIn = 0;
+      if (!Number.isInteger(player.rentOut)) player.rentOut = 0;
+    }
+    if (copy.phase.kind === 'auction' && !Number.isInteger(copy.phase.deadline)) copy.phase.deadline = 0;
+    if (copy.phase.kind === 'trade' && !Number.isInteger(copy.phase.offer.rentShareTurns)) copy.phase.offer.rentShareTurns = 0;
     const problems = checkInvariants(copy);
     if (problems.length) return { ok: false, error: `Save failed validation (${problems[0]})` };
     return { ok: true, state: copy };
