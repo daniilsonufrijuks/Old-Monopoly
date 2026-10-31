@@ -244,7 +244,7 @@ export class LANServer {
       this.emitLobby();
     });
 
-    socket.on('lobby:start', (ack?: (result: Ack) => void) => {
+    socket.on('lobby:start', (raw: unknown, ack?: (result: Ack) => void) => {
       const player = this.player(socket.id);
       if (!player?.isHost) return fail(ack, 'Only the host can start');
       if (this.room.status !== 'lobby') return fail(ack, 'The match has already started');
@@ -255,6 +255,7 @@ export class LANServer {
       this.engine = GameEngine.create({
         mode: 'lan',
         rules: this.room.rules,
+        plates: raw && typeof raw === 'object' ? raw as Record<string, never> : undefined,
         players: this.room.players.map((entry) => ({
           id: entry.id,
           name: entry.name,
@@ -287,6 +288,13 @@ export class LANServer {
       this.push(result.state, result.events, body.actionId);
       ack?.({ ok: true });
       this.scheduleAi();
+    });
+
+    socket.on('table:plates', (raw: unknown) => {
+      const player = this.player(socket.id);
+      if (!player?.isHost || !this.engine || this.room.status !== 'playing') return;
+      this.engine.setPlates(raw);
+      this.push(this.engine.getState(), []);
     });
 
     socket.on('table:chat', (raw: unknown) => {

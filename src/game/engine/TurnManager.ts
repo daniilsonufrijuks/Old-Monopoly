@@ -1,4 +1,5 @@
 import { CARD_MAP } from '../cards/decks';
+import { deedName } from '../board/plates';
 import { isOwnable, spaceById, spaceByIndex } from '../board/spaces';
 import { netWorth } from '../rules/building';
 import { rentOwed } from '../rules/rent';
@@ -424,16 +425,16 @@ function resolveSpace(state: GameState, ctx: Ctx, playerId: string): void {
   const owned = state.properties[space.id];
   if (!owned.ownerId) {
     state.phase = { kind: 'buy', propertyId: space.id };
-    log(state, ctx, `${player.name} may buy ${space.name} for $${space.price}.`);
+    log(state, ctx, `${player.name} may buy ${deedName(state, space.id)} for $${space.price}.`);
     return;
   }
   if (owned.ownerId === playerId) {
-    log(state, ctx, `${player.name} lands on ${space.name}, which they already own.`);
+    log(state, ctx, `${player.name} lands on ${deedName(state, space.id)}, which they already own.`);
     afterLanding(state, ctx);
     return;
   }
   if (owned.mortgaged) {
-    log(state, ctx, `${space.name} is mortgaged. No rent is due.`);
+    log(state, ctx, `${deedName(state, space.id)} is mortgaged. No rent is due.`);
     afterLanding(state, ctx);
     return;
   }
@@ -450,12 +451,12 @@ function resolveSpace(state: GameState, ctx: Ctx, playerId: string): void {
     utilityTen: landing.utilityTen,
   });
   if (amount <= 0) {
-    log(state, ctx, `No rent is due for ${space.name}.`);
+    log(state, ctx, `No rent is due for ${deedName(state, space.id)}.`);
     afterLanding(state, ctx);
     return;
   }
   ctx.events.push({ type: 'rent', fromId: playerId, toId: owned.ownerId, propertyId: space.id, amount });
-  chargeOrDebt(state, ctx, playerId, owned.ownerId, amount, `rent at ${space.name}`, { kind: 'after-landing' });
+  chargeOrDebt(state, ctx, playerId, owned.ownerId, amount, `rent at ${deedName(state, space.id)}`, { kind: 'after-landing' });
 }
 
 function rollInJail(state: GameState, ctx: Ctx, playerId: string): void {
@@ -552,7 +553,7 @@ export function dispatch(state: GameState, ctx: Ctx, actorId: string, action: Ga
       state.properties[propertyId].ownerId = player.id;
       state.properties[propertyId].mortgaged = false;
       ctx.events.push({ type: 'purchase', playerId: player.id, propertyId, price: space.price });
-      log(state, ctx, `${player.name} buys ${space.name} for $${space.price}.`);
+      log(state, ctx, `${player.name} buys ${deedName(state, space.id)} for $${space.price}.`);
       afterLanding(state, ctx);
       return null;
     }
@@ -560,7 +561,7 @@ export function dispatch(state: GameState, ctx: Ctx, actorId: string, action: Ga
       if (state.phase.kind !== 'buy') return 'There is nothing to decline';
       if (currentPlayer(state).id !== actorId) return 'It is not your turn';
       const propertyId = state.phase.propertyId;
-      log(state, ctx, `${player.name} declines ${spaceById(propertyId).name}.`);
+      log(state, ctx, `${player.name} declines ${deedName(state, propertyId)}.`);
       if (!state.rules.auctions) {
         afterLanding(state, ctx);
         return null;

@@ -1,3 +1,4 @@
+import { sanitizePlates } from '../game/board/plates';
 import { checkInvariants } from '../game/engine/invariants';
 import { normalizeRules } from '../game/modes';
 import type { GameState } from '../game/types';
@@ -21,6 +22,7 @@ export function validateGameState(input: unknown): { ok: true; state: GameState 
     const copy = structuredClone(state);
     copy.rules = normalizeRules(copy.rules);
     if (!Array.isArray(copy.agreements)) copy.agreements = [];
+    copy.plates = sanitizePlates(copy.plates);
     for (const player of copy.players) {
       if (!Number.isInteger(player.rentIn)) player.rentIn = 0;
       if (!Number.isInteger(player.rentOut)) player.rentOut = 0;

@@ -87,8 +87,12 @@ export class LANClient {
     this.socket?.emit('lobby:kick', playerId);
   }
 
-  start(): Promise<JoinResult> {
-    return this.emitAck('lobby:start', undefined);
+  start(plates?: unknown): Promise<JoinResult> {
+    return this.emitAck('lobby:start', plates ?? {});
+  }
+
+  setPlates(plates: unknown): void {
+    this.socket?.emit('table:plates', plates);
   }
 
   chat(text: string): void {

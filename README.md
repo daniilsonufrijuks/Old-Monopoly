@@ -52,6 +52,10 @@ Solo games save themselves. Open **Saved games** to resume. The host keeps the L
 
 Auctions are open. Anyone who has not passed may bid, and each bid resets a 20-second clock.
 
+## Companies
+
+The person who deals the table can place or remove firms on the squares. Solo setup and the LAN host lobby both include the company editor. After the match starts, that same person can open **Edit companies**. Removing a firm restores the classic deed on that square. The price, rent, and color stay with the square.
+
 ## Turn pace
 
 Settings includes five speeds. **Slow** and **Leisurely** move tokens more gradually and leave a pause between computer actions. A Chance or Community Chest card stays on the table until you press **OK**, or until its timer ends. Enter and Escape also close that card.

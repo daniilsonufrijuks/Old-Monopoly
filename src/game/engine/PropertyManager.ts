@@ -1,3 +1,4 @@
+import { deedName } from '../board/plates';
 import { spaceById, unmortgageCost } from '../board/spaces';
 import { canBuild, canMortgage, canSellBuilding, canUnmortgage, housePrice } from '../rules/building';
 import type { GameState } from '../types';
@@ -17,11 +18,11 @@ export function buildHouse(state: GameState, ctx: Ctx, playerId: string, propert
     prop.houses = 5;
     state.bank.hotels -= 1;
     state.bank.houses += 4;
-    log(state, ctx, `${player.name} builds a hotel on ${space.name}.`);
+    log(state, ctx, `${player.name} builds a hotel on ${deedName(state, space.id)}.`);
   } else {
     prop.houses += 1;
     state.bank.houses -= 1;
-    log(state, ctx, `${player.name} builds a house on ${space.name} (${prop.houses}).`);
+    log(state, ctx, `${player.name} builds a house on ${deedName(state, space.id)} (${prop.houses}).`);
   }
   ctx.events.push({ type: 'build', playerId, propertyId, houses: prop.houses });
   return null;
@@ -40,11 +41,11 @@ export function sellBuilding(state: GameState, ctx: Ctx, playerId: string, prope
     prop.houses = 4;
     state.bank.hotels += 1;
     state.bank.houses -= 4;
-    log(state, ctx, `${player.name} sells the hotel on ${space.name} for $${refund}.`);
+    log(state, ctx, `${player.name} sells the hotel on ${deedName(state, space.id)} for $${refund}.`);
   } else {
     prop.houses -= 1;
     state.bank.houses += 1;
-    log(state, ctx, `${player.name} sells a house on ${space.name} for $${refund}.`);
+    log(state, ctx, `${player.name} sells a house on ${deedName(state, space.id)} for $${refund}.`);
   }
   ctx.events.push({ type: 'build', playerId, propertyId, houses: prop.houses });
   return null;
@@ -60,7 +61,7 @@ export function mortgageProperty(state: GameState, ctx: Ctx, playerId: string, p
   prop.mortgaged = true;
   player.cash += space.mortgage;
   ctx.events.push({ type: 'mortgage', playerId, propertyId, mortgaged: true });
-  log(state, ctx, `${player.name} mortgages ${space.name} for $${space.mortgage}.`);
+  log(state, ctx, `${player.name} mortgages ${deedName(state, space.id)} for $${space.mortgage}.`);
   return null;
 }
 
@@ -75,7 +76,7 @@ export function unmortgageProperty(state: GameState, ctx: Ctx, playerId: string,
   player.cash -= cost;
   prop.mortgaged = false;
   ctx.events.push({ type: 'mortgage', playerId, propertyId, mortgaged: false });
-  log(state, ctx, `${player.name} unmortgages ${space.name} for $${cost}.`);
+  log(state, ctx, `${player.name} unmortgages ${deedName(state, space.id)} for $${cost}.`);
   return null;
 }
 
@@ -90,6 +91,6 @@ export function liquidateBuildings(state: GameState, ctx: Ctx, playerId: string)
     else state.bank.houses += prop.houses;
     prop.houses = 0;
     player.cash += refund;
-    log(state, ctx, `${player.name} returns the buildings on ${space.name} to the bank for $${refund}.`);
+    log(state, ctx, `${player.name} returns the buildings on ${deedName(state, space.id)} to the bank for $${refund}.`);
   }
 }

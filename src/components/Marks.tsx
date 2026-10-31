@@ -1,4 +1,6 @@
-export type MarkKind = 'seal' | 'anchor' | 'lamp' | 'sun' | 'crown' | 'key' | 'tree' | 'star' | 'rail' | 'bolt' | 'drop';
+import type { CompanyPlate, MarkKind } from '../game/board/plates';
+
+export type { MarkKind };
 
 export interface CompanyMark {
   company: string;
@@ -37,8 +39,8 @@ export const COMPANIES: Record<string, CompanyMark> = {
   boardwalk: { company: 'Boardwalk Pier', letter: 'B', kind: 'crown' },
 };
 
-export function PropertyMark({ id, className }: { id: string; className?: string }) {
-  const mark = COMPANIES[id];
+export function PropertyMark({ id, plate, className }: { id: string; plate?: CompanyPlate | null; className?: string }) {
+  const mark = plate ?? COMPANIES[id];
   if (!mark) return null;
   return (
     <svg className={className} viewBox="0 0 32 32" aria-hidden="true">

@@ -4,6 +4,7 @@ import { cardText, speak } from '../i18n';
 import { chooseAction, fallbackAction, isAiTurn } from '../game/ai/AIController';
 import { GameEngine } from '../game/engine/GameEngine';
 import { actingPlayerId } from '../game/engine/TurnManager';
+import type { CompanyPlate } from '../game/board/plates';
 import type { GameAction, GameEvent, GameState, NewGameConfig } from '../game/types';
 import { LANClient } from '../multiplayer/client/LANClient';
 import { store } from '../platform/store';
@@ -154,6 +155,11 @@ export function SoloTable({ setup, resume, onExit }: { setup?: NewGameConfig; re
       canSave
       onAction={(action) => void onAction(action)}
       onDismissCard={() => dismissCard.current?.()}
+      canEdit
+      onPlates={(plates: Record<string, CompanyPlate>) => {
+        engine.setPlates(plates);
+        setState(engine.getState());
+      }}
       onSave={() => {
         void store.saveGame({
           id: `solo-${Date.now()}`,
@@ -275,6 +281,8 @@ export function LanTable({ client, youId, opening, canSave, onExit }: { client: 
         });
       }}
       onDismissCard={() => dismissCard.current?.()}
+      canEdit={Boolean(state.players.find((player) => player.id === youId)?.isHost)}
+      onPlates={(plates) => client.setPlates(plates)}
       messages={messages}
       onChat={(text) => client.chat(text)}
       onSave={() => {

@@ -1,3 +1,4 @@
+import { sanitizePlates } from '../board/plates';
 import { ownableSpaces } from '../board/spaces';
 import { CARD_MAP, deckIds } from '../cards/decks';
 import type { GameState, NewGameConfig, PlayerState, TokenId } from '../types';
@@ -101,6 +102,7 @@ export function createInitialState(config: NewGameConfig, seed = 1): GameState {
     bank: { houses: 32, hotels: 12 },
     agreements: [],
     log: [],
+    plates: sanitizePlates(config.plates),
   };
   state.log.push({
     id: uid('log'),

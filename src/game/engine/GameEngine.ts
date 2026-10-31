@@ -1,5 +1,6 @@
 import type { ActionResult, GameAction, GameState, NewGameConfig } from '../types';
 import type { Ctx } from './context';
+import { sanitizePlates, type CompanyPlate } from '../board/plates';
 import { createInitialState, mulberry32 } from './createGame';
 import { checkInvariants } from './invariants';
 import { dispatch } from './TurnManager';
@@ -21,6 +22,12 @@ export class GameEngine {
 
   getState(): GameState {
     return structuredClone(this.state);
+  }
+
+  setPlates(plates: Record<string, CompanyPlate> | unknown): void {
+    const next = structuredClone(this.state);
+    next.plates = sanitizePlates(plates);
+    this.state = next;
   }
 
   replaceState(state: GameState): void {

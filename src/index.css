@@ -323,22 +323,94 @@ select option {
   box-shadow: inset 0 0 0 2px var(--owner, transparent);
 }
 
+.space.tile {
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 2px 12px;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.38), transparent 46%),
+    var(--group);
+}
+
+.tile-mark {
+  position: relative;
+  z-index: 1;
+  width: min(68%, 36px);
+  height: auto;
+}
+
+.tile-name {
+  position: relative;
+  z-index: 1;
+  max-width: 96%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1a120c;
+  background: rgba(255, 250, 240, 0.94);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-size: clamp(8px, 0.62vw, 11px);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.stars {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  left: 2px;
+  color: #f0d48a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-shadow: 0 1px 0 #3e2918;
+}
+
 .board-center {
   grid-column: 2 / 11;
   grid-row: 2 / 11;
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 10px;
-  pointer-events: none;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
+  margin: 8px;
+  padding: 8px 10px 6px;
+  overflow: hidden;
+  pointer-events: auto;
   background:
-    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.45), transparent 48%),
-    repeating-linear-gradient(0deg, rgba(90, 60, 30, 0.05) 0 1px, transparent 1px 18px);
-  border: 1px solid rgba(90, 60, 30, 0.2);
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.55), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(90, 60, 30, 0.04) 0 1px, transparent 1px 16px),
+    rgba(255, 250, 240, 0.72);
+  border: 1px solid rgba(90, 60, 30, 0.22);
   border-radius: 12px;
+}
+
+.board-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.board-notice {
+  color: #1a120c;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.board-log {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  text-align: left;
+  color: #1a120c;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .board-medallion {

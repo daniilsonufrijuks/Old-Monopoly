@@ -214,6 +214,8 @@ export interface GameState {
   bank: { houses: number; hotels: number };
   agreements: RentAgreement[];
   log: LogEntry[];
+  /** Firm names the table starter placed on ownable squares. Prices stay with the square. */
+  plates?: Record<string, import('./board/plates').CompanyPlate>;
 }
 
 export type GameAction =
@@ -297,4 +299,5 @@ export interface NewGameConfig {
   mode: 'solo' | 'lan';
   seed?: number;
   extraCards?: Array<{ text: string; amount: number }>;
+  plates?: Record<string, import('./board/plates').CompanyPlate>;
 }

@@ -3,6 +3,8 @@ import type { Difficulty, GameModeId, GameState, NewGameConfig, Personality, Tok
 import { describeRules, GAME_MODES, rulesForMode, rulesPatch, tableRules } from '../game/modes';
 import { THEMES } from '../settings/themes';
 import { TableCrest } from '../components/Marks';
+import { TableEditor } from '../components/TableEditor';
+import type { CompanyPlate } from '../game/board/plates';
 import { t } from '../i18n';
 import { LANClient } from '../multiplayer/client/LANClient';
 import type { LobbySnapshot } from '../multiplayer/server/RoomManager';
@@ -48,6 +50,7 @@ function MenuButton({ label, detail, onClick, secondary, secondaryLabel }: { lab
 export function SoloSetup({ onBack, onStart }: { onBack: () => void; onStart: (config: NewGameConfig) => void }) {
   const { settings, update } = useSettings();
   const [count, setCount] = useState(3);
+  const [plates, setPlates] = useState<Record<string, CompanyPlate>>({});
   const [seats, setSeats] = useState(() => PERSONALITIES.slice(0, 3).map((personality, index) => ({ difficulty: 'normal' as Difficulty, personality, key: index })));
   const used = new Set<TokenId>([settings.token]);
   const aiTokens = TOKENS.filter((token) => !used.has(token.id));
@@ -75,12 +78,14 @@ export function SoloSetup({ onBack, onStart }: { onBack: () => void; onStart: (c
           </div>
         );
       })}
+      <TableEditor plates={plates} onChange={setPlates} />
       <button className="gold-button rounded-md px-4 py-3 text-sm" onClick={() => {
         void update({ playerName: settings.playerName });
         onStart({
           mode: 'solo',
           rules: tableRules(settings),
           extraCards: settings.extraCardText.trim() ? [{ text: settings.extraCardText, amount: settings.extraCardAmount }] : undefined,
+          plates,
           players: [
             { name: settings.playerName || 'Player', token: settings.token, isAI: false },
             ...Array.from({ length: count }, (_, index) => ({
@@ -233,6 +238,7 @@ export function HostScreen({ resume, onBack }: { resume?: SaveRecord; onBack: ()
   const [game, setGame] = useState<GameState | null>(null);
   const [youId, setYouId] = useState('');
   const [error, setError] = useState('');
+  const [plates, setPlates] = useState<Record<string, CompanyPlate>>({});
 
   useEffect(() => {
     const client = new LANClient();
@@ -298,12 +304,13 @@ export function HostScreen({ resume, onBack }: { resume?: SaveRecord; onBack: ()
       {lobby && lobby.status === 'lobby' && (
         <div className="flex flex-wrap gap-2">
           <button className="rounded border px-3 py-2 text-xs" onClick={() => clientRef.current?.addAi('normal', 'trader')}>Add AI</button>
-          <button className="gold-button rounded-md px-4 py-2 text-xs" onClick={() => void clientRef.current?.start().then((result) => { if (!result.ok) setError(result.error ?? 'Cannot start'); })}>Start match</button>
+          <button className="gold-button rounded-md px-4 py-2 text-xs" onClick={() => void clientRef.current?.start(plates).then((result) => { if (!result.ok) setError(result.error ?? 'Cannot start'); })}>Start match</button>
         </div>
       )}
       {lobby?.status === 'lobby' && (
         <div className="grid gap-2 text-sm">
           <ModePicker selected={lobby.rules.modeId ?? 'classic'} onSelect={(modeId) => clientRef.current?.updateSettings(rulesPatch(rulesForMode(modeId)))} />
+          <TableEditor plates={plates} onChange={setPlates} />
           <p className="menu-soft text-xs">{describeRules(lobby.rules)}</p>
           <label className="flex justify-between">Auctions <input type="checkbox" checked={lobby.rules.auctions} onChange={(event) => clientRef.current?.updateSettings({ auctions: event.target.checked })} /></label>
           <label className="flex justify-between">Free Parking pot <input type="checkbox" checked={lobby.rules.freeParkingPot} onChange={(event) => clientRef.current?.updateSettings({ freeParkingPot: event.target.checked })} /></label>

@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { GROUP_COLOR, spaceById } from '../game/board/spaces';
 import { isOwnable } from '../game/board/spaces';
+import { deedName, type CompanyPlate } from '../game/board/plates';
 import { actingPlayerId } from '../game/engine/TurnManager';
 import { canBuild, canMortgage, canSellBuilding, canUnmortgage, housePrice, netWorth } from '../game/rules/building';
 import { describeRules } from '../game/modes';
-import { COMPANIES, PropertyMark } from '../components/Marks';
-import type { GameAction, GameState } from '../game/types';
+import { PropertyMark } from '../components/Marks';
+import { TableEditor } from '../components/TableEditor';
+import type { GameAction, GameState, PlayerState } from '../game/types';
 import { t } from '../i18n';
 import { useSettings } from '../settings/SettingsContext';
 import { Board } from '../components/Board';
@@ -32,6 +34,8 @@ export function MatchView({
   onDismissCard,
   messages,
   onChat,
+  canEdit,
+  onPlates,
 }: {
   state: GameState;
   youId: string;
@@ -49,6 +53,8 @@ export function MatchView({
   onDismissCard?: () => void;
   messages?: Array<{ name: string; text: string }>;
   onChat?: (text: string) => void;
+  canEdit?: boolean;
+  onPlates?: (plates: Record<string, CompanyPlate>) => void;
 }) {
   const { settings } = useSettings();
   const tr = (key: string) => t(settings.language, key);
@@ -57,6 +63,8 @@ export function MatchView({
   const [counterOpen, setCounterOpen] = useState(false);
   const [books, setBooks] = useState(false);
   const [history, setHistory] = useState(false);
+  const [editor, setEditor] = useState(false);
+  const logRef = useRef<HTMLDivElement>(null);
   const [chatText, setChatText] = useState('');
   const [localChat, setLocalChat] = useState<Array<{ name: string; text: string }>>([]);
   const [clock, setClock] = useState(Date.now());
@@ -113,6 +121,11 @@ export function MatchView({
     return () => window.removeEventListener('keydown', onKey);
   }, [card, onAction, onDismissCard, state.phase.kind, yours]);
 
+  useEffect(() => {
+    const node = logRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [state.log.length, card]);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <header className="wood-panel flex items-center justify-between rounded-xl px-4 py-2 text-cream">
@@ -122,6 +135,7 @@ export function MatchView({
           <div className="menu-soft text-xs">{describeRules(state.rules)}</div>
         </div>
         <div className="flex gap-2">
+          {canEdit && onPlates && <button className="gold-button rounded-md px-3 py-1 text-xs" onClick={() => setEditor(true)}>Edit companies</button>}
           {canSave && <button className="gold-button rounded-md px-3 py-1 text-xs" onClick={onSave}>Save</button>}
           <button className="rounded-md border border-[#e7d3a4] px-3 py-1 text-xs" onClick={onLeave}>Leave table</button>
         </div>
@@ -133,14 +147,14 @@ export function MatchView({
             const metal = TOKENS.find((token) => token.id === player.token)?.metal;
             return (
               <article key={player.id} className={`paper-panel rounded-lg p-3 ${active ? 'outline outline-2 outline-[#b8893e]' : ''} ${player.bankrupt ? 'opacity-50' : ''}`}>
-                <div className="flex items-center gap-2">
-                  <span className="h-8 w-8 rounded-full border border-[#2a2118]" style={{ background: metal }}><TokenGlyph id={player.token} /></span>
-                  <div>
-                    <div className="font-display text-sm">{player.name}</div>
-                    <div className="paper-muted text-xs">{player.isAI ? `${player.difficulty} ${player.personality}` : player.id === youId ? 'You' : 'Human'}{!player.connected && !player.isAI ? ' · away' : ''}</div>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 border-[#2a2118]" style={{ background: metal }}><TokenGlyph id={player.token} /></span>
+                  <div className="min-w-0">
+                    <div className="truncate font-display text-base text-ink">{player.name}</div>
+                    <div className="paper-muted text-xs">{player.isAI ? `${player.difficulty} ${player.personality}` : player.id === youId ? 'You' : 'Human'}{!player.connected && !player.isAI ? ' · away' : ''}{player.inJail ? ` · jail ${player.jailTurns}` : ''}</div>
                   </div>
                 </div>
-                <div className="mt-2 font-deed text-lg">{player.bankrupt ? 'Bankrupt' : money(player.cash)}</div>
+                <div className="mt-2 font-deed text-2xl leading-none">{player.bankrupt ? 'Bankrupt' : money(player.cash)}</div>
                 <div className="paper-muted text-xs">Worth {player.bankrupt ? '—' : money(netWorth(state, player.id))}</div>
                 <div className="paper-muted text-xs">
                   {player.inJail ? `In jail · try ${player.jailTurns}` : `Space ${player.position}`}
@@ -151,7 +165,18 @@ export function MatchView({
           })}
         </aside>
         <div className="board-well min-h-0">
-          <Board state={state} positions={positions} dice={dice} rolling={rolling} notice={card ?? state.log.at(-1)?.message ?? 'Roll to begin.'} onSelect={setDeed} />
+          <Board state={state} positions={positions} dice={dice} rolling={rolling} notice={card ?? ''} onSelect={setDeed}>
+            <div ref={logRef} className="board-log">
+              {(history ? state.log : state.log.slice(-24)).map((entry) => (
+                <p key={entry.id} className="mb-1"><span className="opacity-60">#{entry.turn} </span>{paintLog(entry.message, state.players)}</p>
+              ))}
+            </div>
+            <Chat lines={messages ?? localChat} text={chatText} tr={tr} onText={setChatText} onSend={(text) => {
+              if (onChat) onChat(text);
+              else setLocalChat((current) => [...current, { name: you?.name ?? 'You', text }].slice(-30));
+              setChatText('');
+            }} />
+          </Board>
         </div>
         <aside className="paper-panel flex min-h-0 flex-col rounded-xl p-3">
           <h2 className="font-display text-sm tracking-[0.14em]">THE TABLE</h2>
@@ -175,7 +200,7 @@ export function MatchView({
           </div>
           {state.phase.kind === 'auction' && (
             <div className="mt-3 rounded-lg bg-[#f6ead2] p-2 text-sm text-ink">
-              <div>{tr('auction')}: {spaceById(state.phase.propertyId).name}</div>
+              <div>{tr('auction')}: {deedName(state, state.phase.propertyId)}</div>
               <div>{tr('highBid')} {money(state.phase.highBid)} {state.phase.highBidderId ? `· ${nameOf(state, state.phase.highBidderId)}` : ''}</div>
               <div>{tr('bidding')}{state.phase.deadline ? ` · ${Math.max(0, Math.ceil((state.phase.deadline - clock) / 1000))} ${tr('seconds')}` : ''}</div>
               {!state.phase.passed.includes(youId) && !busy && (
@@ -201,7 +226,7 @@ export function MatchView({
               const managing = yours && (state.phase.kind === 'pre-roll' || state.phase.kind === 'manage' || state.phase.kind === 'buy' || state.phase.kind === 'debt' || state.phase.kind === 'income-tax');
               return (
                 <div key={prop.id} className="mb-2 border-b border-[#eadcbf] pb-2">
-                  <button className="text-left font-deed" onClick={() => setDeed(prop.id)}>{space.name}</button>
+                  <button className="text-left font-deed" onClick={() => setDeed(prop.id)}>{deedName(state, prop.id)}</button>
                   <div className="text-xs text-[#6b5434]">{prop.mortgaged ? 'Mortgaged' : prop.houses === 5 ? 'Hotel' : prop.houses ? `${prop.houses} houses` : 'Undeveloped'}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {space.kind === 'street' && !prop.mortgaged && <Tiny label="House" title={build ?? 'Build'} disabled={!managing || Boolean(build) || state.phase.kind === 'debt' || state.phase.kind === 'buy'} onClick={() => onAction({ type: 'build', propertyId: prop.id })} />}
@@ -217,16 +242,17 @@ export function MatchView({
             <Tiny label={tr('history')} onClick={() => setHistory((value) => !value)} />
           </div>
           {books && you && <Books state={state} youId={youId} tr={tr} />}
-          <div className="mt-2 max-h-36 overflow-auto border-t border-[#eadcbf] pt-2 text-xs">
-            {(history ? [...state.log].reverse() : [...state.log].slice(-12).reverse()).map((entry) => <p key={entry.id} className="mb-1">#{entry.turn} {entry.message}</p>)}
-          </div>
-          <Chat lines={messages ?? localChat} text={chatText} tr={tr} onText={setChatText} onSend={(text) => {
-            if (onChat) onChat(text);
-            else setLocalChat((current) => [...current, { name: you?.name ?? 'You', text }].slice(-30));
-            setChatText('');
-          }} />
         </aside>
       </div>
+      {editor && onPlates && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4" onClick={() => setEditor(false)}>
+          <article className="paper-panel max-h-[90vh] w-full max-w-xl overflow-auto rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
+            <h2 className="font-display text-2xl">Edit the table</h2>
+            <div className="mt-3"><TableEditor plates={state.plates ?? {}} onChange={onPlates} /></div>
+            <button type="button" className="gold-button mt-4 min-w-32 rounded-md px-6 py-3 text-base" onClick={() => setEditor(false)}>OK</button>
+          </article>
+        </div>
+      )}
       {deed && <Deed state={state} propertyId={deed} onClose={() => setDeed(null)} />}
       {tradeOpen && you && <Trade state={state} youId={youId} onClose={() => setTradeOpen(false)} onOffer={(action) => { setTradeOpen(false); onAction(action); }} />}
       {counterOpen && state.phase.kind === 'trade' && <Trade state={state} youId={youId} counter onClose={() => setCounterOpen(false)} onOffer={(action) => { setCounterOpen(false); onAction(action); }} />}
@@ -259,6 +285,31 @@ function Tiny({ label, onClick, disabled, title }: { label: string; onClick: () 
   return <button className="rounded border border-[#c8b48a] px-2 py-0.5 text-[11px] disabled:opacity-40" title={title} disabled={disabled} onClick={onClick}>{label}</button>;
 }
 
+function paintLog(message: string, players: PlayerState[]): ReactNode[] {
+  const ordered = [...players].sort((left, right) => right.name.length - left.name.length);
+  const nodes: ReactNode[] = [];
+  let rest = message;
+  let key = 0;
+  while (rest.length) {
+    let hit: { index: number; player: PlayerState } | null = null;
+    for (const player of ordered) {
+      if (!player.name) continue;
+      const index = rest.indexOf(player.name);
+      if (index >= 0 && (!hit || index < hit.index)) hit = { index, player };
+    }
+    if (!hit) {
+      nodes.push(rest);
+      break;
+    }
+    if (hit.index > 0) nodes.push(rest.slice(0, hit.index));
+    const ink = ['#7a1d1d', '#1a5fb4', '#1f6b45', '#8c4a12', '#6b3fa0', '#8c3048'][players.indexOf(hit.player)] ?? '#7a1d1d';
+    nodes.push(<b key={`${hit.player.id}-${key}`} style={{ color: ink }}>{hit.player.name}</b>);
+    key += 1;
+    rest = rest.slice(hit.index + hit.player.name.length);
+  }
+  return nodes;
+}
+
 function priceOf(id: string): number {
   const space = spaceById(id);
   return isOwnable(space) ? space.price : 0;
@@ -276,11 +327,11 @@ function Deed({ state, propertyId, onClose }: { state: GameState; propertyId: st
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <article className="paper-panel w-full max-w-sm rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
         <div className="mb-3 flex items-center gap-3">
-          <PropertyMark id={propertyId} className="h-14 w-14 shrink-0" />
+          <PropertyMark id={propertyId} plate={state.plates?.[propertyId]} className="h-14 w-14 shrink-0" />
           <div>
             {space.kind === 'street' && <div className="mb-2 h-3 rounded" style={{ background: GROUP_COLOR[space.group] }} />}
-            <h3 className="font-display text-xl">{space.name}</h3>
-            {COMPANIES[propertyId] && <p className="paper-muted text-xs uppercase tracking-[0.14em]">{COMPANIES[propertyId].company}</p>}
+            <h3 className="font-display text-xl">{deedName(state, propertyId)}</h3>
+            <p className="paper-muted text-xs uppercase tracking-[0.14em]">{state.plates?.[propertyId]?.company ?? space.name}</p>
           </div>
         </div>
         <p className="paper-muted text-sm">Owner: {owner}{prop?.mortgaged ? ' · mortgaged' : ''}</p>

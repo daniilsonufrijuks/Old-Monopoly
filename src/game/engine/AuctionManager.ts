@@ -1,3 +1,4 @@
+import { deedName } from '../board/plates';
 import { spaceById } from '../board/spaces';
 import type { GameState, Resume } from '../types';
 import type { Ctx } from './context';
@@ -25,7 +26,7 @@ export function openAuction(state: GameState, ctx: Ctx, propertyId: string, then
     then,
   };
   const space = spaceById(propertyId);
-  log(state, ctx, `Auction started for ${space.name}.`);
+  log(state, ctx, `Auction started for ${deedName(state, space.id)}.`);
   ctx.events.push({ type: 'auction', propertyId, status: 'started' });
 }
 
@@ -36,7 +37,7 @@ function finish(state: GameState, ctx: Ctx, done: AuctionDone): void {
   if (phase.highBidderId && phase.highBid > 0) {
     const winner = playerById(state, phase.highBidderId);
     if (winner.cash < phase.highBid) {
-      log(state, ctx, `The high bid for ${space.name} could not be paid. The deed stays with the bank.`);
+      log(state, ctx, `The high bid for ${deedName(state, space.id)} could not be paid. The deed stays with the bank.`);
       ctx.events.push({ type: 'auction', propertyId: phase.propertyId, status: 'unsold' });
     } else {
       winner.cash -= phase.highBid;
@@ -44,7 +45,7 @@ function finish(state: GameState, ctx: Ctx, done: AuctionDone): void {
       prop.ownerId = winner.id;
       prop.mortgaged = false;
       prop.houses = 0;
-      log(state, ctx, `${winner.name} wins ${space.name} for $${phase.highBid}.`);
+      log(state, ctx, `${winner.name} wins ${deedName(state, space.id)} for $${phase.highBid}.`);
       ctx.events.push({
         type: 'auction',
         propertyId: phase.propertyId,
@@ -54,7 +55,7 @@ function finish(state: GameState, ctx: Ctx, done: AuctionDone): void {
       });
     }
   } else {
-    log(state, ctx, `${space.name} stays with the bank.`);
+    log(state, ctx, `${deedName(state, space.id)} stays with the bank.`);
     ctx.events.push({ type: 'auction', propertyId: phase.propertyId, status: 'unsold' });
   }
   const then = phase.then;

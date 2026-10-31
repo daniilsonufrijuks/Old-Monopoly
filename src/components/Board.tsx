@@ -1,9 +1,9 @@
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { GROUP_COLOR, GROUP_IDS, isOwnable, spaceById, type SpaceDef } from '../game/board/spaces';
 import { SPACES } from '../game/board/spaces';
 import type { GameState } from '../game/types';
 import { PropertyMark } from './Marks';
-import { modeById } from '../game/modes';
 import { TOKENS, TokenGlyph } from './Tokens';
 import { gridCell, sideOf, tokenPoint } from './geometry';
 
@@ -29,21 +29,27 @@ function SpaceCell({ space, state, onSelect }: { space: SpaceDef; state: GameSta
   const owned = isOwnable(space) ? state.properties[space.id] : undefined;
   const owner = owned?.ownerId ? state.players.find((player) => player.id === owned.ownerId) : undefined;
   const metal = owner ? TOKENS.find((token) => token.id === owner.token)?.metal : undefined;
-  const color = space.kind === 'street' ? GROUP_COLOR[space.group] : undefined;
+  const plate = state.plates?.[space.id];
+  const color = space.kind === 'street' ? GROUP_COLOR[space.group] : space.kind === 'railroad' ? '#4e301d' : space.kind === 'utility' ? '#1a5fb4' : undefined;
+  const firm = plate?.shortName || space.shortName;
   return (
     <button
       type="button"
-      className={`space ${side} ${space.index % 10 === 0 ? 'corner' : ''} ${owner ? 'owned' : ''}`}
+      className={`space ${side} ${space.index % 10 === 0 ? 'corner' : ''} ${color ? 'tile' : ''} ${owner ? 'owned' : ''}`}
       style={{ ...gridCellStyle(space.index), ['--group' as string]: color, ['--owner' as string]: metal }}
       onClick={() => onSelect(space.id)}
     >
-      {color && <i className="bar" />}
-      <PropertyMark id={space.id} className="mark" />
-      <span className="label">{space.kind === 'go' ? `GO +$${state.rules.goSalary}` : space.shortName}</span>
-      {doubledRent(state, space) && <span className="set-flag">×2</span>}
-      {owned && owned.houses > 0 && <span key={`${space.id}-${owned.houses}`} className="houses">{owned.houses === 5 ? 'HOTEL' : '●'.repeat(owned.houses)}</span>}
-      {isOwnable(space) && !owned?.ownerId && <span className="price">${space.price}</span>}
-      {owned?.mortgaged && <span className="price">MORT</span>}
+      {color ? (
+        <>
+          <PropertyMark id={space.id} plate={plate} className="tile-mark" />
+          <span className="tile-name">{firm}</span>
+          {doubledRent(state, space) && <span className="set-flag">×2</span>}
+          {owned && owned.houses > 0 && <span key={`${space.id}-${owned.houses}`} className="stars">{owned.houses === 5 ? 'H' : '★'.repeat(owned.houses)}</span>}
+          <span className="price">{owned?.mortgaged ? 'MORT' : isOwnable(space) ? `$${space.price}` : ''}</span>
+        </>
+      ) : (
+        <span className="label">{space.kind === 'go' ? `GO +$${state.rules.goSalary}` : space.shortName}</span>
+      )}
     </button>
   );
 }
@@ -60,6 +66,7 @@ export function Board({
   rolling,
   notice,
   onSelect,
+  children,
 }: {
   state: GameState;
   positions: Record<string, number>;
@@ -67,20 +74,24 @@ export function Board({
   rolling: boolean;
   notice: string;
   onSelect: (id: string) => void;
+  children?: ReactNode;
 }) {
   return (
     <div className="board">
       {SPACES.map((space) => <SpaceCell key={space.id} space={space} state={state} onSelect={onSelect} />)}
       <div className="board-center">
-        <div className="board-medallion" aria-hidden="true" />
-        <div className="board-title font-display text-4xl tracking-[0.2em]">MONOPOLY</div>
-        <div className="board-sub font-deed text-xs uppercase tracking-[0.28em]">{modeById(state.rules.modeId ?? 'classic').name} table</div>
-        <div className="flex gap-3 pointer-events-none">
-          <Die value={dice?.[0] ?? 0} rolling={rolling} />
-          <Die value={dice?.[1] ?? 0} rolling={rolling} />
+        <div className="board-feed-head">
+          <div>
+            <div className="board-title font-display text-xl tracking-[0.18em]">MONOPOLY</div>
+            {state.rules.freeParkingPot && <p className="board-sub font-deed text-xs">Free Parking ${state.freeParking}</p>}
+          </div>
+          <div className="flex gap-2">
+            <Die value={dice?.[0] ?? 0} rolling={rolling} />
+            <Die value={dice?.[1] ?? 0} rolling={rolling} />
+          </div>
         </div>
-        <p className="board-sub max-w-[240px] text-center font-deed text-sm">{notice}</p>
-        {state.rules.freeParkingPot && <p className="board-sub font-deed text-xs">Free Parking ${state.freeParking}</p>}
+        {notice && <p className="board-notice">{notice}</p>}
+        {children}
       </div>
       {state.players.map((player, index) => {
         const point = tokenPoint(positions[player.id] ?? player.position, index);
